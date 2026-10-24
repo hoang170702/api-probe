@@ -9,7 +9,9 @@ export default defineConfig({
   server: {
     proxy: {
       // SSE streams also go through this proxy; Vite does not buffer them.
-      '/api': { target: apiTarget, changeOrigin: true },
+      // The backend refuses calls whose Origin is another site (BRD-001 §13),
+      // so the proxy presents them as coming from the backend's own origin.
+      '/api': { target: apiTarget, changeOrigin: true, headers: { origin: apiTarget } },
     },
   },
 })

@@ -161,6 +161,7 @@ Common warnings that need no action:
 | `address already in use` (Linux) or *Only one usage of each socket address is normally permitted* (Windows) when starting | Another program uses port 8080, often an API Case Runner that is already running; stop it, or start with another port (`CASERUNNER_BIND=127.0.0.1:9090`) and open that port. |
 | *port 8080 is used by … (PID …), not API Case Runner* when building with `--run` / `-Run` | Another program uses the port; stop it, or pick another port with `CASERUNNER_BIND` (see section 1). |
 | *API Case Runner is running (PID …), so the build cannot replace caserunner.exe* (Windows) | Build with `-Run` to restart it, or stop it first. |
+| The page shows *Host … is not accepted; open the tool at http://127.0.0.1:…* | The tool only answers to `127.0.0.1` or `localhost` (protection against malicious web sites); open the address it gives. To reach it by the machine's name or IP, start it with `CASERUNNER_BIND=0.0.0.0:8080`. |
 | PowerShell: *running scripts is disabled on this system* | Run the build as `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1`. |
 | `build.ps1` stops with *Node.js v… is too old* or *was not found on PATH* | Install what it names with the `winget` command it prints, open a new PowerShell window, and build again. |
 | The service stops right away with a message naming a `CASERUNNER_` variable | That environment variable has an invalid value; fix or unset it ([BRD-001 §20](brd/BRD-001.md#20-configuration-env)). |

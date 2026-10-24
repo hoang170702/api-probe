@@ -161,6 +161,7 @@ Các cảnh báo thường gặp, không cần làm gì:
 | Báo `address already in use` (Linux) hoặc *Only one usage of each socket address is normally permitted* (Windows) khi khởi động | Chương trình khác đang dùng cổng 8080, thường là một API Case Runner đang chạy sẵn; dừng nó, hoặc chạy với cổng khác (`CASERUNNER_BIND=127.0.0.1:9090`) rồi mở cổng đó. |
 | *port 8080 is used by … (PID …), not API Case Runner* khi build với `--run` / `-Run` | Chương trình khác đang dùng cổng đó; tắt nó, hoặc chọn cổng khác bằng `CASERUNNER_BIND` (xem mục 1). |
 | *API Case Runner is running (PID …), so the build cannot replace caserunner.exe* (Windows) | Build với `-Run` để khởi động lại, hoặc tắt nó trước. |
+| Trang báo *Host … is not accepted; open the tool at http://127.0.0.1:…* | Tool chỉ trả lời khi được mở bằng `127.0.0.1` hoặc `localhost` (để chống trang web độc hại); mở đúng địa chỉ nó đưa ra. Muốn mở bằng tên máy hoặc IP thì khởi động với `CASERUNNER_BIND=0.0.0.0:8080`. |
 | PowerShell báo *running scripts is disabled on this system* | Chạy build bằng `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1`. |
 | `build.ps1` dừng với *Node.js v… is too old* hoặc *was not found on PATH* | Cài thứ nó nêu bằng lệnh `winget` nó in ra, mở cửa sổ PowerShell mới rồi build lại. |
 | Service dừng ngay kèm thông báo nêu tên một biến `CASERUNNER_` | Biến môi trường đó có giá trị sai; sửa lại hoặc bỏ nó đi ([BRD-001 §20](brd/BRD-001.vi.md#20-cấu-hình-env)). |

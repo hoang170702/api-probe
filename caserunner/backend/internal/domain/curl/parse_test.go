@@ -175,6 +175,12 @@ func TestParse(t *testing.T) {
 			wantWarnings: []string{"The URL has no scheme; using http://localhost:8080/ok as curl does"},
 		},
 		{
+			name:         "a :// in the query does not count as a scheme",
+			input:        `curl 'localhost:8080/cb?next=http://x'`,
+			want:         Template{Method: "GET", URL: "http://localhost:8080/cb?next=http://x", BodyKind: BodyNone},
+			wantWarnings: []string{"The URL has no scheme; using http://localhost:8080/cb?next=http://x as curl does"},
+		},
+		{
 			name:  "JSON body without Content-Type warns",
 			input: `curl https://a.local -d '{"a":1}'`,
 			want:  Template{Method: "POST", URL: "https://a.local", BodyRaw: `{"a":1}`, BodyKind: BodyJSON},

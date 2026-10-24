@@ -72,8 +72,8 @@ export default function Workspace() {
 
   function addStep() {
     const id = nextStepId.current++
-    // The first capture of the first step is named token (§11.3).
-    const captures: Capture[] = [{ var: steps.length === 0 ? 'token' : '', path: '' }]
+    // The first step captures the token (§11.3); later steps may capture nothing.
+    const captures: Capture[] = steps.length === 0 ? [{ var: 'token', path: '' }] : []
     setSteps((prev) => [...prev, { id, curl: '', analyzing: false, captures }])
     setStepResults(undefined)
   }
@@ -98,7 +98,12 @@ export default function Workspace() {
     setTrying(true)
     setTryError(undefined)
     try {
-      const res = await tryPrepare(steps.map((s) => ({ template: s.parsed!.template, captures: s.captures })))
+      const res = await tryPrepare(
+        steps.map((s) => ({
+          template: s.parsed!.template,
+          captures: s.captures.filter((c) => c.var !== '' || c.path !== ''), // a blank row is not a capture
+        })),
+      )
       setStepResults(res.steps)
     } catch (err) {
       setStepResults(undefined)

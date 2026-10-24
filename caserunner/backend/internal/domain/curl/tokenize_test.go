@@ -107,6 +107,7 @@ func TestLooksLikeCmd(t *testing.T) {
 		{"curl ^\"https://a^\" ^\n -H ^\"x: y^\"", true},
 		{"curl ^\"https://a^\"", true},
 		{"curl 'https://a'", false},
+		{`curl 'https://a' -d '{"note":"x^"}'`, false}, // ^" inside a bash string
 	}
 	for _, tt := range tests {
 		if got := looksLikeCmd(tt.input); got != tt.want {

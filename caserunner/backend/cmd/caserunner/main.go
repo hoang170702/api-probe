@@ -50,13 +50,6 @@ func run() error {
 		TryPrepare: usecase.TryPrepare{Sender: sender.New(), Policy: policy},
 	}
 
-	srv := &http.Server{
-		Handler:           httpapi.NewHandler(httpapi.Info{Version: version}, useCases, web.Handler()),
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       2 * time.Minute,
-		// No WriteTimeout: SSE streams stay open for the whole run.
-	}
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -64,6 +57,18 @@ func run() error {
 	ln, err := net.Listen("tcp", cfg.Bind)
 	if err != nil {
 		return err
+	}
+	// On a loopback bind only loopback Host names are accepted (DNS rebinding,
+	// BRD-001 §13); a network bind is opened by names this process cannot know.
+	hosts := httpapi.LoopbackHosts(ln.Addr())
+	if hosts == nil {
+		slog.Warn("listening beyond this machine: anyone who can reach " + ln.Addr().String() + " can send requests through this tool")
+	}
+	srv := &http.Server{
+		Handler:           httpapi.Guard(httpapi.NewHandler(httpapi.Info{Version: version}, useCases, web.Handler()), hosts),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+		// No WriteTimeout: SSE streams stay open for the whole run.
 	}
 	slog.Info("caserunner listening", "url", "http://"+ln.Addr().String(), "version", version)
 

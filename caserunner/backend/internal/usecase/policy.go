@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"path"
 	"strings"
@@ -36,12 +37,23 @@ func (p Policy) hostAllowed(host string) bool {
 		return true
 	}
 	host = strings.ToLower(host)
+	isIP := net.ParseIP(host) != nil
 	for _, pattern := range p.AllowedHosts {
-		if ok, _ := path.Match(strings.ToLower(pattern), host); ok {
+		pattern = strings.ToLower(pattern)
+		// An address pattern such as 10.10.* must not admit the domain
+		// 10.10.attacker.example: it only matches IP addresses.
+		if ipPattern(pattern) && !isIP {
+			continue
+		}
+		if ok, _ := path.Match(pattern, host); ok {
 			return true
 		}
 	}
 	return false
+}
+
+func ipPattern(pattern string) bool {
+	return strings.Trim(pattern, "0123456789.:*") == ""
 }
 
 // Timeout returns the per-request timeout for a requested value in

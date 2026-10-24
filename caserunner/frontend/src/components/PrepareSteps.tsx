@@ -145,7 +145,7 @@ function CaptureEditor({ captures, onChange }: { captures: Capture[]; onChange: 
               style={{ fontFamily: MONO }}
             />
           </Space.Compact>
-          <Button size="small" type="text" onClick={() => onChange(captures.filter((_, j) => j !== i))} disabled={captures.length === 1}>
+          <Button size="small" type="text" onClick={() => onChange(captures.filter((_, j) => j !== i))}>
             {t('prepare.removeCapture')}
           </Button>
         </Flex>

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -193,9 +194,13 @@ func (p *parser) finish() (Result, error) {
 	return Result{Template: tpl, Warnings: p.warnings}, nil
 }
 
+// hasScheme matches a URL that starts with a scheme; "://" later in the
+// query (?next=http://x) does not count.
+var hasScheme = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*://`)
+
 func (p *parser) normalizeURL() (string, error) {
 	raw := p.url
-	if !strings.Contains(raw, "://") {
+	if !hasScheme.MatchString(raw) {
 		raw = "http://" + raw
 		p.warn("The URL has no scheme; using %s as curl does", raw)
 	}

@@ -134,6 +134,7 @@ func TestPolicy(t *testing.T) {
 		"http://10.10.3.4/x":               true,
 		"https://api.example.com/x":        false,
 		"https://uat.example.com.evil.io/": false,
+		"http://10.10.attacker.example/":   false, // an address pattern does not admit domains
 	} {
 		if err := p.Check(OutboundRequest{URL: url}); (err == nil) != allowed {
 			t.Errorf("Check(%s) = %v, want allowed=%v", url, err, allowed)

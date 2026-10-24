@@ -1,6 +1,7 @@
 package curl
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -35,8 +36,12 @@ func looksLikeCmd(input string) bool {
 			return false
 		}
 	}
-	return strings.Contains(input, `^"`)
+	return cmdQuote.MatchString(input)
 }
+
+// cmdQuote is a word opened with ^", as Chrome's cmd copy writes every
+// argument; a ^" inside a bash string (a regex in a body) does not count.
+var cmdQuote = regexp.MustCompile(`(^|\s)\^"`)
 
 func isBlank(r rune) bool { return r == ' ' || r == '\t' || r == '\n' || r == '\r' }
 
