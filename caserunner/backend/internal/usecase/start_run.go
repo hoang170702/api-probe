@@ -76,14 +76,14 @@ const tokenVar = "token"
 // the background. It returns an *InputError for a request that cannot run
 // and ErrStoreFull when too many runs are in progress.
 func (u *Runs) Start(in StartRunInput) (StartRunOutput, error) {
-	if err := u.check(in); err != nil {
-		return StartRunOutput{}, err
-	}
 	known := map[string]bool{}
 	for _, s := range in.Prepare {
 		for _, c := range s.Captures {
 			known[c.Var] = true
 		}
+	}
+	if err := u.check(in, known); err != nil {
+		return StartRunOutput{}, err
 	}
 
 	r := run.Run{ID: u.IDs.NewID(), Status: run.RunRunning, CreatedAt: u.Clock.Now(), Results: make([]run.CaseResult, len(in.Cases))}
@@ -134,7 +134,7 @@ func (u *Runs) Start(in StartRunInput) (StartRunOutput, error) {
 	return StartRunOutput{RunID: r.ID, Total: len(in.Cases), Blocked: blocked}, nil
 }
 
-func (u *Runs) check(in StartRunInput) error {
+func (u *Runs) check(in StartRunInput, known map[string]bool) error {
 	if len(in.Cases) == 0 || len(in.Cases) > u.MaxCases {
 		return &InputError{fmt.Sprintf("Send between 1 and %d cases", u.MaxCases)}
 	}
@@ -157,16 +157,8 @@ func (u *Runs) check(in StartRunInput) error {
 	if len(in.Prepare) > 10 {
 		return &InputError{"Send at most 10 prepare steps"}
 	}
-	if len(in.Prepare) > 0 && in.InjectToken {
-		found := false
-		for _, s := range in.Prepare {
-			for _, c := range s.Captures {
-				found = found || c.Var == tokenVar
-			}
-		}
-		if !found {
-			return &InputError{"Inject token needs a capture named token"}
-		}
+	if len(in.Prepare) > 0 && in.InjectToken && !known[tokenVar] {
+		return &InputError{"Inject token needs a capture named token"}
 	}
 	return nil
 }
@@ -304,7 +296,7 @@ func (u *Runs) runCase(ctx context.Context, id string, res run.CaseResult, in St
 					res.ErrorType = ErrCancelled
 				}
 				res.Reason = fmt.Sprintf("Prepare step %d failed: %s", n+1, s.Reason)
-				u.done(id, res)
+				u.save(id, res)
 				return
 			}
 		}
@@ -314,14 +306,14 @@ func (u *Runs) runCase(ctx context.Context, id string, res run.CaseResult, in St
 	t, err := flow.Apply(t, vars)
 	if err != nil { // prebuild already checked the names; this is a bug
 		res.Status, res.ErrorType, res.Reason = run.Exception, ErrInternal, err.Error()
-		u.done(id, res)
+		u.save(id, res)
 		return
 	}
 	req := OutboundRequest{Method: t.Method, URL: t.URL, Headers: t.Headers, Body: t.BodyRaw, Insecure: t.Insecure}
 	res.RequestBody = req.Body
 	if err := u.Policy.Check(req); err != nil {
 		res.Status, res.ErrorType, res.Reason = run.Exception, ErrPolicy, capitalize(err.Error())
-		u.done(id, res)
+		u.save(id, res)
 		return
 	}
 
@@ -336,7 +328,7 @@ func (u *Runs) runCase(ctx context.Context, id string, res run.CaseResult, in St
 			f.ErrorType, f.Reason = ErrCancelled, "The run was cancelled while this case was in flight"
 		}
 		res.Status, res.ErrorType, res.Reason = run.Exception, f.ErrorType, f.Reason
-		u.done(id, res)
+		u.save(id, res)
 		return
 	}
 	res.HTTPStatus, res.ResponseBody, res.Truncated = resp.Status, string(resp.Body), resp.Truncated
@@ -344,12 +336,10 @@ func (u *Runs) runCase(ctx context.Context, id string, res run.CaseResult, in St
 		res.Duration = resp.Duration
 	}
 	run.Judge(&res, resp.Headers, resp.Body)
-	u.done(id, res)
+	u.save(id, res)
 }
 
 func (u *Runs) save(id string, res run.CaseResult) {
 	_ = u.Repo.Update(id, func(r *run.Run) { r.Results[res.CaseIndex] = res })
 	u.Events.Publish(id, Event{Kind: EventCase, Case: &res})
 }
-
-func (u *Runs) done(id string, res run.CaseResult) { u.save(id, res) }
