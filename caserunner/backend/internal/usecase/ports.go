@@ -2,9 +2,11 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/domain/curl"
+	"github.com/hoang170702/api-probe/caserunner/backend/internal/domain/run"
 )
 
 // RequestSender sends one HTTP request to the API under test. It never
@@ -50,4 +52,19 @@ const (
 	ErrInvalidResponse = "INVALID_RESPONSE"
 	ErrCancelled       = "CANCELLED"
 	ErrPolicy          = "POLICY"
+)
+
+// RunRepository keeps runs while they execute and for a while after
+// (BRD-001 §15.6). Get returns a copy; every change goes through Update,
+// which applies fn under the repository's lock.
+type RunRepository interface {
+	Create(r run.Run) error
+	Get(id string) (run.Run, bool)
+	Update(id string, fn func(*run.Run)) error
+}
+
+// Errors a RunRepository returns.
+var (
+	ErrRunNotFound = errors.New("run not found or expired")
+	ErrStoreFull   = errors.New("too many runs are in progress")
 )
