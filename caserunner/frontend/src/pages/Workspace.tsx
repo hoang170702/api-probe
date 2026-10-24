@@ -228,7 +228,8 @@ export default function Workspace() {
       stopWatching.current?.()
       setRunState({ id: started.runId, status: 'RUNNING', results: [] })
       stopWatching.current = watchRun(started.runId, {
-        onSnapshot: (snap) => setRunState({ id: snap.runId, status: snap.status, results: snap.results }),
+        onSnapshot: (snap) =>
+          setRunState((prev) => (prev && prev.id !== snap.runId ? prev : { id: snap.runId, status: snap.status, results: snap.results })),
         onCase: (c) =>
           setRunState((prev) => {
             if (!prev || prev.id !== started.runId) return prev
@@ -237,7 +238,12 @@ export default function Workspace() {
             return { ...prev, results }
           }),
         onDone: (d) => setRunState((prev) => (prev && prev.id === d.runId ? { ...prev, status: d.status } : prev)),
-        onError: (msg) => message.error(`${t('results.lost')}: ${msg}`),
+        // The run can no longer be followed (expired, or the tool stopped):
+        // drop it so Run is enabled again.
+        onError: (msg) => {
+          message.error(`${t('results.lost')}: ${msg}`)
+          setRunState((prev) => (prev && prev.id === started.runId ? undefined : prev))
+        },
       })
     } catch (err) {
       message.error(`${t('run.failed')}: ${errorMessage(err)}`)
