@@ -37,6 +37,27 @@ func TestClassify(t *testing.T) {
 	}
 }
 
+// A13: transport headers are not searched, and the body comes before headers.
+func TestClassifyIgnoresTransportHeaders(t *testing.T) {
+	transport := []curl.Header{
+		{Name: "Content-Length", Value: "100"}, {Name: "Date", Value: "Sat, 24 Oct 2026 16:00:05 GMT"},
+		{Name: "content-type", Value: "application/json"}, {Name: "Server", Value: "nginx/1.00"},
+	}
+	if got := Classify("00", 200, transport, []byte(`{"code":"99"}`)); got != "" {
+		t.Errorf("00 matched %q in transport headers", got)
+	}
+	both := append(transport, curl.Header{Name: "X-Result-Code", Value: "00"})
+	if got := Classify("00", 200, both, []byte(`{"code":"00"}`)); got != InBody {
+		t.Errorf("body must be searched before headers, got %q", got)
+	}
+	if got := Classify("E42", 200, both, []byte(`{}`)); got != "" {
+		t.Errorf("E42 is nowhere: got %q", got)
+	}
+	if got := Classify("X-Result-Code: 00", 200, both, []byte(`{}`)); got != InHeader {
+		t.Errorf("an application header still counts: got %q", got)
+	}
+}
+
 func TestJudge(t *testing.T) {
 	ok := CaseResult{Expect: "ERR_X", HTTPStatus: 400}
 	Judge(&ok, nil, []byte(`{"code":"ERR_X"}`))

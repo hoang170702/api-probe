@@ -10,10 +10,11 @@ import (
 )
 
 // Classify looks for expect in the response (BRD-001 §12, D14): first as
-// the whole HTTP status code, then case-sensitively inside each header as
-// "Name: value", then inside the body. The status must match exactly, or a
-// code such as 00 would match every HTTP 200 and 500. It returns where the
-// code was found, or "" when it was not.
+// the whole HTTP status code, then case-sensitively inside the body, then
+// inside each application header as "Name: value". The status must match
+// exactly and transport headers are skipped, or a code such as 00 would
+// match every HTTP 200/500, every Date and many Content-Length values. It
+// returns where the code was found, or "" when it was not.
 func Classify(expect string, status int, headers []curl.Header, body []byte) string {
 	if expect == "" {
 		return ""
@@ -21,15 +22,25 @@ func Classify(expect string, status int, headers []curl.Header, body []byte) str
 	if expect == strconv.Itoa(status) {
 		return InStatus
 	}
+	if bytes.Contains(body, []byte(expect)) {
+		return InBody
+	}
 	for _, h := range headers {
+		if transportHeaders[strings.ToLower(h.Name)] {
+			continue
+		}
 		if strings.Contains(h.Name+": "+h.Value, expect) {
 			return InHeader
 		}
 	}
-	if bytes.Contains(body, []byte(expect)) {
-		return InBody
-	}
 	return ""
+}
+
+// transportHeaders carry protocol data, not the API's answer (A13).
+var transportHeaders = map[string]bool{
+	"date": true, "content-length": true, "content-type": true, "server": true, "connection": true,
+	"etag": true, "last-modified": true, "expires": true, "cache-control": true, "vary": true,
+	"transfer-encoding": true, "keep-alive": true, "age": true,
 }
 
 // Judge sets the status and reason of a case that got a response.
