@@ -1,4 +1,5 @@
 import { Alert, Button, Flex, Input, Typography } from 'antd'
+import { useI18n } from '../i18n/context'
 
 const PLACEHOLDER = `curl 'https://uat-api.example.com/v1/transfers' \\
   -H 'Content-Type: application/json' \\
@@ -14,11 +15,10 @@ interface Props {
 
 /** Curl panel (BRD-001 §16): paste a command and analyze it. Ctrl/⌘+Enter also analyzes. */
 export default function CurlInput({ value, onChange, onAnalyze, loading, error }: Props) {
+  const { t } = useI18n()
   return (
     <Flex vertical gap={12}>
-      <Typography.Text type="secondary">
-        Paste a curl command copied from Chrome / Firefox DevTools ("Copy as cURL", bash or cmd) or Postman.
-      </Typography.Text>
+      <Typography.Text type="secondary">{t('curl.help')}</Typography.Text>
       <Input.TextArea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -32,11 +32,11 @@ export default function CurlInput({ value, onChange, onAnalyze, loading, error }
       />
       <Flex gap={12} align="center">
         <Button type="primary" onClick={onAnalyze} loading={loading} disabled={value.trim() === ''}>
-          Analyze
+          {t('curl.analyze')}
         </Button>
-        <Typography.Text type="secondary">Ctrl+Enter</Typography.Text>
+        <Typography.Text type="secondary">{t('curl.shortcut')}</Typography.Text>
       </Flex>
-      {error && <Alert type="error" showIcon title="Cannot use this curl" description={error} />}
+      {error && <Alert type="error" showIcon title={t('curl.error')} description={error} />}
     </Flex>
   )
 }

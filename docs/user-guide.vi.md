@@ -1,6 +1,6 @@
 # Hướng dẫn sử dụng API Case Runner
 
-API Case Runner giúp tester lấy một request API dưới dạng lệnh `curl` rồi chạy nó với nhiều bộ dữ liệu, không cần viết code. Hướng dẫn này nói về những gì phiên bản hiện tại làm được: **dán curl, kiểm tra request, và đặt rule cho từng field trong JSON body**. Nhập test case, chạy và xuất báo cáo sẽ có ở các bản tiếp theo ([BRD-001 §18](brd/BRD-001.vi.md#18-kế-hoạch-implement-từng-step-nhỏ)).
+API Case Runner giúp tester lấy một request API dưới dạng lệnh `curl` rồi chạy nó với nhiều bộ dữ liệu, không cần viết code. Hướng dẫn này nói về những gì phiên bản hiện tại làm được: **lấy token khi API cần, dán curl, kiểm tra request, và đặt rule cho từng field trong JSON body**. Nhập test case, chạy và xuất báo cáo sẽ có ở các bản tiếp theo ([BRD-001 §18](brd/BRD-001.vi.md#18-kế-hoạch-implement-từng-step-nhỏ)).
 
 Bản tiếng Anh: [user-guide.md](user-guide.md).
 
@@ -14,7 +14,7 @@ scripts/build.sh          # chạy một lần, hoặc sau khi kéo code mới v
 backend/bin/caserunner
 ```
 
-Sau đó mở **http://127.0.0.1:8080** trên trình duyệt. Tag ở góc trên bên phải hiện **BE OK** kèm phiên bản khi tool đã sẵn sàng.
+Sau đó mở **http://127.0.0.1:8080** trên trình duyệt. Tag ở góc trên bên phải hiện **BE OK** kèm phiên bản khi tool đã sẵn sàng. Nút **VI / EN** bên cạnh đổi ngôn ngữ của trang; lựa chọn được ghi nhớ.
 
 | Muốn | Làm |
 |---|---|
@@ -69,7 +69,30 @@ Dán lệnh vào **1. Curl** rồi bấm **Analyze** (hoặc nhấn **Ctrl+Enter
 
 **All Required** và **All Unrequired** đặt mọi rule cùng lúc; bộ đếm phía trên bảng cho biết mỗi loại có bao nhiêu. Nếu bạn sửa curl rồi Analyze lại, các field vẫn còn sẽ giữ rule bạn đã chọn.
 
-## 6. Khi curl không dùng được
+## 6. Lấy token trước (tuỳ chọn)
+
+Hầu hết API ngoài máy của developer đều cần token, thường lấy từ một API login. Thay vì tự copy token (và copy lại mỗi khi hết hạn), hãy để tool tự lấy:
+
+1. Trong **0. Lấy token (tuỳ chọn)**, bấm **Thêm bước lấy token** rồi dán curl của API login (hoặc API cấp token), copy giống như ở mục 2. Bấm **Analyze**.
+2. Ở **Giá trị cần bắt từ response**, biến đầu tiên đã có tên `token` và **Path** để trống: khi đó tool tự tìm token, bằng cách tìm field tên `access_token`, `accessToken`, `token`, `id_token`, `jwt`, … ở mọi tầng. Nếu API của bạn để token ở chỗ khác, gõ path vào, ví dụ `data.auth.value`.
+3. Bấm **Chạy thử**. Mỗi bước hiện **Thành công** hoặc lý do lỗi, mã HTTP, giá trị bắt được (bị che; bật **Hiện giá trị nhạy cảm** để xem) và nơi tìm thấy, ví dụ *lấy từ data.accessToken*. Mở **Response body** để xem toàn bộ response.
+4. Giữ công tắc **Gắn Authorization: Bearer {{token}} vào curl chính** ở trạng thái bật: khi chạy case, curl chính được gắn `Authorization: Bearer <token>` mới, thay cho cái bạn đã dán. Ở **2. Request**, dòng `Authorization` cũ bị gạch để cho biết điều đó.
+
+![Một bước lấy token đã tự tìm thấy token](images/05-token-step-vi.png)
+
+Khi chạy case, các bước lấy token chạy lại **trước mỗi case**, nên mỗi case dùng một token mới và các case chạy lần lượt. *(Phần chạy case có ở bản tiếp theo; hiện tại **Chạy thử** giúp kiểm tra việc lấy token.)*
+
+**Flow nhiều bước** (login → OTP → …): thêm bước. Bước sau dùng được giá trị bước trước đã bắt bằng cách viết `{{name}}` ở bất kỳ đâu trong URL, header hay body, ví dụ `-H 'Authorization: Bearer {{token}}'` hoặc `"session":"{{sessionId}}"`. Curl chính cũng dùng `{{name}}` được như vậy; **2. Request** liệt kê các biến nó dùng và đánh dấu biến nào chưa có bước nào bắt.
+
+| Kết quả bước | Cách xử lý |
+|---|---|
+| *Expected a 2xx response, got HTTP 401* | Bản thân việc login bị từ chối: kiểm tra tài khoản trong curl của bước. |
+| *token: no token field found in the response* | Token có tên khác: mở **Response body**, tìm nó rồi gõ path vào. |
+| *token: no value at data.x* | Path sai; đối chiếu lại với **Response body**. |
+| *Host … is not in CASERUNNER_ALLOWED_HOSTS* | Tool được cấu hình chỉ gọi tới một số host; nhờ người vận hành thêm host này. |
+| *Unknown variable {{x}}* | Chưa có bước nào trước đó bắt `x`; thêm capture hoặc sửa lại tên. |
+
+## 7. Khi curl không dùng được
 
 Thông báo dưới ô curl cho biết cần sửa gì. Vị trí được đếm theo ký tự từ đầu chuỗi.
 
@@ -99,13 +122,13 @@ Các cảnh báo thường gặp, không cần làm gì:
 | *No Content-Type header* | API có thể không đọc body như JSON; thêm `-H 'Content-Type: application/json'` nếu cần. |
 | *The URL has no scheme; using http://…* | Thêm `https://` nếu API cần. |
 
-## 7. Nên biết
+## 8. Nên biết
 
 - API Case Runner không lưu gì xuống đĩa. Đóng hoặc tải lại trang là mất những gì đã nhập.
 - Curl của bạn, kể cả token, chỉ được gửi tới server API Case Runner của chính bạn và không bao giờ bị ghi vào log.
-- Chỉ dùng API Case Runner với môi trường LOCAL, DEV hoặc UAT, không bao giờ với production. Allowlist host để bắt buộc điều này đang được lên kế hoạch ([BRD-001 §13](brd/BRD-001.vi.md#13-an-toàn--bảo-mật)).
+- **Chạy thử** gửi request thật. Chỉ dùng API Case Runner với môi trường LOCAL, DEV hoặc UAT, không bao giờ với production. Người vận hành tool có thể giới hạn các host được gọi bằng `CASERUNNER_ALLOWED_HOSTS`, ví dụ `CASERUNNER_ALLOWED_HOSTS='localhost,*.uat.example.com'` ([BRD-001 §13](brd/BRD-001.vi.md#13-an-toàn--bảo-mật)).
 
-## 8. Xử lý sự cố
+## 9. Xử lý sự cố
 
 | Hiện tượng | Cách xử lý |
 |---|---|

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Alert, Descriptions, Flex, Switch, Table, Tag, Typography } from 'antd'
 import type { Header, RequestTemplate } from '../types/api'
+import { useI18n } from '../i18n/context'
 import { isSensitiveHeader, maskValue } from '../lib/mask'
+import { placeholders } from '../lib/placeholders'
 
 const METHOD_COLORS: Record<string, string> = {
   GET: 'green',
@@ -14,12 +16,18 @@ const METHOD_COLORS: Record<string, string> = {
 interface Props {
   template: RequestTemplate
   warnings: string[]
+  /** Authorization will be replaced by Bearer {{token}} at run time (§11.3). */
+  injectToken: boolean
+  /** Variables the token steps capture. */
+  knownVars: string[]
 }
 
 /** The request as parsed, for the tester to confirm before writing cases (BRD-001 §16). */
-export default function RequestSummary({ template, warnings }: Props) {
+export default function RequestSummary({ template, warnings, injectToken, knownVars }: Props) {
+  const { t } = useI18n()
   const [showSecrets, setShowSecrets] = useState(false)
   const rows = template.headers.map((h, i) => ({ ...h, key: i }))
+  const used = placeholders(template)
 
   return (
     <Flex vertical gap={16}>
@@ -28,7 +36,7 @@ export default function RequestSummary({ template, warnings }: Props) {
         column={1}
         items={[
           {
-            label: 'Request',
+            label: t('request.request'),
             children: (
               <Flex gap={8} align="center" wrap>
                 <Tag color={METHOD_COLORS[template.method.toUpperCase()] ?? 'default'}>{template.method}</Tag>
@@ -39,18 +47,36 @@ export default function RequestSummary({ template, warnings }: Props) {
               </Flex>
             ),
           },
-          { label: 'Body', children: <BodyKindTag kind={template.bodyKind} /> },
+          { label: t('request.body'), children: <BodyKindTag kind={template.bodyKind} /> },
+          ...(used.length > 0
+            ? [
+                {
+                  label: t('vars.title'),
+                  children: (
+                    <Flex gap={8} wrap>
+                      {used.map((name) =>
+                        knownVars.includes(name) ? (
+                          <Tag key={name} color="success">{`{{${name}}}`}</Tag>
+                        ) : (
+                          <Tag key={name} color="error">{`{{${name}}} · ${t('vars.missing')}`}</Tag>
+                        ),
+                      )}
+                    </Flex>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
 
       {template.bodyKind === 'unsupported' && (
-        <Alert type="error" showIcon title="v1 supports JSON bodies only" description="This request cannot be run." />
+        <Alert type="error" showIcon title={t('request.unsupported')} description={t('request.unsupportedDesc')} />
       )}
       {warnings.length > 0 && (
         <Alert
           type="warning"
           showIcon
-          title={`${warnings.length} warning${warnings.length > 1 ? 's' : ''}`}
+          title={t('request.warnings', { n: warnings.length })}
           description={
             <ul style={{ margin: 0, paddingInlineStart: 20 }}>
               {warnings.map((w, i) => (
@@ -65,26 +91,39 @@ export default function RequestSummary({ template, warnings }: Props) {
         size="small"
         pagination={false}
         dataSource={rows}
-        locale={{ emptyText: 'No headers' }}
+        locale={{ emptyText: t('headers.none') }}
         title={() => (
           <Flex justify="space-between" align="center">
-            <Typography.Text strong>Headers ({rows.length})</Typography.Text>
+            <Typography.Text strong>{t('headers.title', { n: rows.length })}</Typography.Text>
             <Flex gap={8} align="center">
-              <Typography.Text type="secondary">Show sensitive values</Typography.Text>
+              <Typography.Text type="secondary">{t('headers.showSensitive')}</Typography.Text>
               <Switch size="small" checked={showSecrets} onChange={setShowSecrets} />
             </Flex>
           </Flex>
         )}
         columns={[
-          { title: 'Name', dataIndex: 'name', width: 260, render: (v: string) => <Typography.Text code>{v}</Typography.Text> },
           {
-            title: 'Value',
+            title: t('headers.name'),
+            dataIndex: 'name',
+            width: 260,
+            render: (v: string) => <Typography.Text code>{v}</Typography.Text>,
+          },
+          {
+            title: t('headers.value'),
             dataIndex: 'value',
-            render: (v: string, h) => (
-              <Typography.Text style={{ wordBreak: 'break-all' }}>
-                {isSensitiveHeader(h.name) && !showSecrets ? maskValue(v) : v}
-              </Typography.Text>
-            ),
+            render: (v: string, h) => {
+              const replaced = injectToken && h.name.toLowerCase() === 'authorization'
+              return (
+                <Typography.Text delete={replaced} style={{ wordBreak: 'break-all' }}>
+                  {isSensitiveHeader(h.name) && !showSecrets ? maskValue(v) : v}
+                  {replaced && (
+                    <Tag color="processing" style={{ marginInlineStart: 8 }}>
+                      {t('headers.replaced')}
+                    </Tag>
+                  )}
+                </Typography.Text>
+              )
+            },
           },
         ]}
       />
@@ -93,12 +132,13 @@ export default function RequestSummary({ template, warnings }: Props) {
 }
 
 function BodyKindTag({ kind }: { kind: RequestTemplate['bodyKind'] }) {
+  const { t } = useI18n()
   switch (kind) {
     case 'json':
-      return <Tag color="blue">JSON</Tag>
+      return <Tag color="blue">{t('body.json')}</Tag>
     case 'none':
-      return <Tag>No body</Tag>
+      return <Tag>{t('body.none')}</Tag>
     default:
-      return <Tag color="error">Unsupported</Tag>
+      return <Tag color="error">{t('body.unsupported')}</Tag>
   }
 }

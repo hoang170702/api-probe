@@ -5,7 +5,7 @@ Paste a `curl`, define test cases in a table, fire them in parallel against the 
 - How to use it: [user guide](../docs/user-guide.md) ([Tiếng Việt](../docs/user-guide.vi.md))
 - Design and requirements: [BRD-001](../docs/brd/BRD-001.md) ([Tiếng Việt](../docs/brd/BRD-001.vi.md))
 
-Status: Steps 0–3 of the implementation plan (BRD-001 §18) — paste a curl, see the request and every field of its JSON body with a Required/Unrequired rule. Cases and runs come next.
+Status: Steps 0–3 and 3b of the implementation plan (BRD-001 §18) — optional token steps (with Try), paste a curl, see the request and every field of its JSON body with a Required/Unrequired rule; UI in Vietnamese and English. Cases and runs come next.
 
 ## Requirements
 

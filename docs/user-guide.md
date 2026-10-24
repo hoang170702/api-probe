@@ -1,6 +1,6 @@
 # API Case Runner user guide
 
-API Case Runner lets a tester take one API request as a `curl` command and run it with many data sets, without writing code. This guide covers what the current version does: **paste a curl, check the request, and set a rule for every field of its JSON body**. Entering test cases, running them and exporting reports come in the next releases ([BRD-001 §18](brd/BRD-001.md#18-implementation-plan-small-steps)).
+API Case Runner lets a tester take one API request as a `curl` command and run it with many data sets, without writing code. This guide covers what the current version does: **get a token when the API needs one, paste a curl, check the request, and set a rule for every field of its JSON body**. Entering test cases, running them and exporting reports come in the next releases ([BRD-001 §18](brd/BRD-001.md#18-implementation-plan-small-steps)).
 
 Vietnamese version: [user-guide.vi.md](user-guide.vi.md).
 
@@ -14,7 +14,7 @@ scripts/build.sh          # once, or after pulling new code
 backend/bin/caserunner
 ```
 
-Then open **http://127.0.0.1:8080** in a browser. The tag at the top right shows **BE OK** and the version when the tool is ready.
+Then open **http://127.0.0.1:8080** in a browser. The tag at the top right shows **BE OK** and the version when the tool is ready. The **VI / EN** switch next to it changes the language of the page; your choice is remembered.
 
 | Want to | Do |
 |---|---|
@@ -69,7 +69,30 @@ What the rule will mean when you run cases:
 
 **All Required** and **All Unrequired** set every rule at once; the counter above the table shows how many of each you have. If you edit the curl and analyze again, fields that still exist keep the rule you chose.
 
-## 6. When the curl cannot be used
+## 6. Get a token first (optional)
+
+Most APIs outside a developer's laptop need a token, usually from a login API. Instead of copying a token by hand (and again when it expires), let the tool fetch it:
+
+1. In **0. Token (optional)**, click **Add token step** and paste the curl of the login (or token) API, copied the same way as in section 2. Click **Analyze**.
+2. Under **Values to capture from the response**, the first variable is already named `token` with an empty **Path**: the tool then finds the token by itself, looking for a field named `access_token`, `accessToken`, `token`, `id_token`, `jwt`, … at any depth. If your API puts it elsewhere, type the path, e.g. `data.auth.value`.
+3. Click **Try steps**. Each step shows **OK** or why it failed, the HTTP code, the value it captured (masked; turn on **Show sensitive values** to see it) and where it was found, e.g. *from data.accessToken*. Open **Response body** to see the full answer.
+4. Keep **Put Authorization: Bearer {{token}} on the main curl** on: when cases run, the main curl gets a fresh `Authorization: Bearer <token>`, replacing the one you pasted. In **2. Request** the old `Authorization` row is struck through to show it.
+
+![A token step that found the token automatically](images/05-token-step.png)
+
+When cases run, the token steps run again **before every case**, so every case gets a new token and cases run one after another. *(Running cases arrives with the next release; for now **Try steps** lets you check that the token is obtained.)*
+
+**Multi-step flows** (login → OTP → …): add more steps. A later step can use what an earlier one captured by writing `{{name}}` anywhere in its URL, headers or body, e.g. `-H 'Authorization: Bearer {{token}}'` or `"session":"{{sessionId}}"`. The main curl can use `{{name}}` the same way; **2. Request** lists the variables it uses and flags one that no step captures.
+
+| Step result | What to do |
+|---|---|
+| *Expected a 2xx response, got HTTP 401* | The login itself was refused: check the account in the step's curl. |
+| *token: no token field found in the response* | The token has another name: open **Response body**, find it, and type its path. |
+| *token: no value at data.x* | The path is wrong; check it against **Response body**. |
+| *Host … is not in CASERUNNER_ALLOWED_HOSTS* | The tool is set to reach only some hosts; ask whoever runs it to add this one. |
+| *Unknown variable {{x}}* | No earlier step captures `x`; add the capture or fix the name. |
+
+## 7. When the curl cannot be used
 
 The message under the curl explains what to fix. The position counts characters from the start of the text.
 
@@ -99,13 +122,13 @@ Common warnings that need no action:
 | *No Content-Type header* | The API may not read the body as JSON; add `-H 'Content-Type: application/json'` if it should. |
 | *The URL has no scheme; using http://…* | Add `https://` if the API needs it. |
 
-## 7. Good to know
+## 8. Good to know
 
 - API Case Runner keeps nothing on disk. Closing or reloading the page loses what you entered.
 - Your curl, including tokens, is sent only to your own API Case Runner server and is never written to its log.
-- Use API Case Runner against LOCAL, DEV or UAT environments, never production. A host allowlist to enforce this is planned ([BRD-001 §13](brd/BRD-001.md#13-safety--security)).
+- **Try steps** sends real requests. Use API Case Runner against LOCAL, DEV or UAT environments, never production. Whoever runs the tool can restrict the hosts it may call with `CASERUNNER_ALLOWED_HOSTS`, e.g. `CASERUNNER_ALLOWED_HOSTS='localhost,*.uat.example.com'` ([BRD-001 §13](brd/BRD-001.md#13-safety--security)).
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Fix |
 |---|---|

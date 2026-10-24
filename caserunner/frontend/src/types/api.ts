@@ -45,3 +45,32 @@ export interface ParseResponse {
 }
 
 export type FieldRule = 'REQUIRED' | 'UNREQUIRED'
+
+/** One capture of a prepare step: an empty path searches for a token (§11.3). */
+export interface Capture {
+  var: string
+  path: string
+}
+
+export interface PrepareStepInput {
+  template: RequestTemplate
+  captures: Capture[]
+}
+
+export type StepStatus = 'OK' | 'FAILED' | 'SKIPPED'
+
+export interface StepResult {
+  status: StepStatus
+  httpStatus?: number
+  durationMs: number
+  reason: string
+  errorType?: string
+  captured: (Capture & { value: string })[]
+  responseBody: string
+  truncated: boolean
+}
+
+export interface TryPrepareResponse {
+  steps: StepResult[]
+  vars: Record<string, string>
+}

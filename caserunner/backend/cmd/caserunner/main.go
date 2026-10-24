@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/adapter/httpapi"
+	"github.com/hoang170702/api-probe/caserunner/backend/internal/adapter/sender"
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/adapter/web"
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/config"
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/usecase"
@@ -38,8 +39,19 @@ func run() error {
 		slog.Warn("CASERUNNER_ALLOWED_HOSTS is empty: requests may target any host; use this only locally")
 	}
 
+	policy := usecase.Policy{
+		AllowedHosts:   cfg.AllowedHosts,
+		AllowInsecure:  cfg.AllowInsecure,
+		DefaultTimeout: cfg.DefaultTimeout,
+		MaxTimeout:     cfg.MaxTimeout,
+	}
+	useCases := httpapi.UseCases{
+		ParseCurl:  usecase.ParseCurl{},
+		TryPrepare: usecase.TryPrepare{Sender: sender.New(), Policy: policy},
+	}
+
 	srv := &http.Server{
-		Handler:           httpapi.NewHandler(httpapi.Info{Version: version}, httpapi.UseCases{ParseCurl: usecase.ParseCurl{}}, web.Handler()),
+		Handler:           httpapi.NewHandler(httpapi.Info{Version: version}, useCases, web.Handler()),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		// No WriteTimeout: SSE streams stay open for the whole run.
