@@ -2,7 +2,7 @@
 
 **API Case Runner** is a tool for testers: paste one API request as a `curl` command, list many test cases for it in a table, fire them against the API and get a result per case — without writing code.
 
-![API Case Runner: the request and the field rules of a pasted curl](docs/images/02-request-and-fields.png)
+![API Case Runner: configuration on the left, test cases and live results on the right](docs/images/09-overview.png)
 
 ## Features
 

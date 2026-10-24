@@ -37,7 +37,15 @@ Khi thấy dòng `listening`, mở **http://127.0.0.1:8080** trên trình duyệ
 
 Nếu developer đưa sẵn chương trình đã build (`caserunner.exe` trên Windows) thì bạn chỉ cần bước cuối này.
 
-Tag ở góc trên bên phải trang hiện **BE OK** kèm phiên bản khi tool đã sẵn sàng. Nút **VI / EN** bên cạnh đổi ngôn ngữ của trang; lựa chọn được ghi nhớ.
+Trang có một thanh trên màu tối và hai cột:
+
+- **Thanh trên**: nút **Chạy** (thành **Huỷ run** khi đang chạy, và **Chạy lại** sau đó), số case theo từng trạng thái, tag **BE OK** kèm phiên bản khi tool đã sẵn sàng, và nút **VI / EN** để đổi ngôn ngữ (lựa chọn được ghi nhớ).
+- **Cột trái, Cấu hình**: các bước mô tả request, **0. Lấy token**, **1. Curl**, **2. Request** và **3. Field rules**. Bấm vào tiêu đề để mở hoặc thu gọn; bước đang thu gọn hiện một dòng tóm tắt bên phải, ví dụ *POST https://…* hay *5 field · 4 Required*. **Nhập cấu hình** và **Xuất cấu hình** nằm ở đầu cột này.
+- **Cột phải**: **4. Test case** và bên dưới là **5. Kết quả**.
+
+Khi cửa sổ hẹp (dưới 1200 pixel), cột phải chuyển xuống dưới cột trái.
+
+![Toàn trang sau một lần chạy (giao diện tiếng Anh)](images/09-overview.png)
 
 | Muốn | Windows (PowerShell) | Linux / macOS / WSL |
 |---|---|---|
@@ -117,7 +125,7 @@ Khi chạy case, các bước lấy token chạy lại **trước mỗi case**, 
 
 ## 7. Nhập và chạy test case
 
-**4. Test case** hiện bên dưới phần rule khi body là JSON. Bảng có một cột cho mỗi field, thêm **Tên case** và **Expect**. Sau khi Analyze, bảng có sẵn một dòng điền giá trị lấy từ curl.
+**4. Test case** hiện ở cột phải khi body là JSON. Bảng có một cột cho mỗi field, thêm **Tên case** và **Expect**. Sau khi Analyze, bảng có sẵn một dòng điền giá trị lấy từ curl.
 
 ![Bảng case với bốn case](images/06-test-cases-vi.png)
 
@@ -153,7 +161,7 @@ Tìm thấy → **SUCCESS**; không thấy → **FAILED**. Riêng HTTP status kh
 | **Số request song song** | Bao nhiêu case được gửi cùng lúc (1–20, mặc định 5). Khi có bước lấy token thì cố định là 1: các case chạy lần lượt, mỗi case sau các bước lấy token của riêng nó. |
 | **Timeout (giây)** | Chờ mỗi câu trả lời bao lâu (1–120, mặc định 30). Case chờ lâu hơn kết thúc là EXCEPTION. |
 
-Bấm **Chạy**. **5. Kết quả** hiện ra và được điền dần khi từng case xong, không cần tải lại trang:
+Bấm **Chạy** trên thanh trên. **5. Kết quả** được điền dần khi từng case xong, không cần tải lại trang:
 
 ![Kết quả của một lần chạy](images/07-results-vi.png)
 
@@ -165,17 +173,17 @@ Bấm **Chạy**. **5. Kết quả** hiện ra và được điền dần khi t�
 | **BLOCKED** | Case không được gửi vì ô Required hoặc expect trống, hoặc giá trị không khớp type. |
 | **CANCELLED** | Bạn đã huỷ run trước khi case này được gửi. |
 
-Các tag phía trên đếm từng trạng thái; bấm một trạng thái phía trên bảng để chỉ xem các case đó. **Lý do** cho biết vì sao, ví dụ *Found "code":"00" in the body (HTTP 200)* hoặc *ERR_X not found in the response (HTTP 200)*.
+Thanh tiến độ cho biết số case đã xong trên tổng số, và thanh trên đếm từng trạng thái; bấm một trạng thái phía trên bảng để chỉ xem các case đó. **Lý do** cho biết vì sao, ví dụ *Found "code":"00" in the body (HTTP 200)* hoặc *ERR_X not found in the response (HTTP 200)*.
 
 Bấm một dòng để xem chi tiết: mã được tìm thấy ở đâu, các giá trị đã gửi, request body đúng như đã gửi và response body có tô sáng mã expect (ảnh minh hoạ giao diện tiếng Anh):
 
 ![Chi tiết một case](images/08-case-detail.png)
 
-**Huỷ run** dừng lần chạy: các case chưa gửi thành CANCELLED; case đang gửi dở kết thúc là EXCEPTION. **Chạy lại** gửi lại các case với những gì đang có trên trang và thay kết quả cũ. Mỗi lần chạy đều gửi request thật: chỉ chạy với LOCAL, DEV hoặc UAT, không bao giờ với production, và đừng chạy lại case thanh toán khi chưa kiểm tra.
+**Huỷ run** (thanh trên) dừng lần chạy: các case chưa gửi thành CANCELLED; case đang gửi dở kết thúc là EXCEPTION. **Chạy lại** (thanh trên) gửi lại các case với những gì đang có trên trang và thay kết quả cũ. Mỗi lần chạy đều gửi request thật: chỉ chạy với LOCAL, DEV hoặc UAT, không bao giờ với production, và đừng chạy lại case thanh toán khi chưa kiểm tra.
 
 Kết quả được giữ trong bộ nhớ của tool 1 giờ sau khi chạy xong (mặc định) và mất khi tool khởi động lại.
 
-**Lưu lại công việc**: **Xuất cấu hình** (ở **4. Test case**) tải về một file `.json` gồm các bước lấy token, curl, rule, các case và tuỳ chọn chạy. Giá trị token đã bắt không bao giờ được lưu, nhưng các curl được lưu đúng như bạn đã dán, kể cả header `Authorization` của chúng: hãy giữ file này riêng tư. **Nhập cấu hình** (ở **1. Curl**) nạp lại file đó và Analyze lại các curl.
+**Lưu lại công việc**: **Xuất cấu hình** (đầu cột **Cấu hình**) tải về một file `.json` gồm các bước lấy token, curl, rule, các case và tuỳ chọn chạy. Giá trị token đã bắt không bao giờ được lưu, nhưng các curl được lưu đúng như bạn đã dán, kể cả header `Authorization` của chúng: hãy giữ file này riêng tư. **Nhập cấu hình** (ngay bên cạnh) nạp lại file đó và Analyze lại các curl.
 
 ## 8. Khi curl không dùng được
 

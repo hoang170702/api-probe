@@ -37,7 +37,15 @@ When `listening` appears, open **http://127.0.0.1:8080** in a browser. Leave the
 
 If a developer hands you a ready-built program (`caserunner.exe` on Windows), you only need this last step.
 
-The tag at the top right of the page shows **BE OK** and the version when the tool is ready. The **VI / EN** switch next to it changes the language of the page; your choice is remembered.
+The page has a dark top bar and two columns:
+
+- **Top bar**: the **Run** button (it becomes **Cancel run** while a run is in progress, and **Run again** afterwards), a count of each result status, the **BE OK** tag with the version when the tool is ready, and the **VI / EN** switch, which changes the language and is remembered.
+- **Left, Configuration**: the steps that describe the request, **0. Token**, **1. Curl**, **2. Request** and **3. Field rules**. Click a title to open or close it; a closed step shows a one-line summary on the right, such as *POST https://…* or *5 fields · 4 Required*. **Import config** and **Export config** are at the top of this column.
+- **Right**: **4. Test cases** and, below it, **5. Results**.
+
+On a narrow window (under 1200 pixels) the right column moves below the left one.
+
+![The whole page after a run](images/09-overview.png)
 
 | Want to | Windows (PowerShell) | Linux / macOS / WSL |
 |---|---|---|
@@ -117,7 +125,7 @@ When cases run, the token steps run again **before every case**, so every case g
 
 ## 7. Write and run test cases
 
-**4. Test cases** appears below the field rules when the body is JSON. It has one column per field, plus **Case name** and **Expect**. After Analyze it already holds one row filled with the values from your curl.
+**4. Test cases** appears in the right column when the body is JSON. It has one column per field, plus **Case name** and **Expect**. After Analyze it already holds one row filled with the values from your curl.
 
 ![The case table with four cases](images/06-test-cases.png)
 
@@ -153,7 +161,7 @@ An empty Required cell or Expect is outlined in red, with the reason on hover, a
 | **Parallel requests** | How many cases are sent at the same time (1–20, default 5). With token steps it is fixed at 1: cases run one at a time, each after its own token steps. |
 | **Timeout (seconds)** | How long to wait for each answer (1–120, default 30). A case that waits longer ends as EXCEPTION. |
 
-Click **Run**. **5. Results** appears and fills in as cases finish, without reloading the page:
+Click **Run** in the top bar. **5. Results** fills in as cases finish, without reloading the page:
 
 ![Results of a run](images/07-results.png)
 
@@ -165,17 +173,17 @@ Click **Run**. **5. Results** appears and fills in as cases finish, without relo
 | **BLOCKED** | The case was not sent because a Required cell or the expect was empty, or a value did not fit its type. |
 | **CANCELLED** | You cancelled the run before this case was sent. |
 
-The tags at the top count each status; click a status above the table to show only those cases. **Reason** says why, e.g. *Found "code":"00" in the body (HTTP 200)* or *ERR_X not found in the response (HTTP 200)*.
+The progress bar shows finished cases out of the total, and the top bar counts each status; click a status above the table to show only those cases. **Reason** says why, e.g. *Found "code":"00" in the body (HTTP 200)* or *ERR_X not found in the response (HTTP 200)*.
 
 Click a row to see the details: where the code was found, the values sent, the request body exactly as sent and the response body with the expect code highlighted.
 
 ![Details of one case](images/08-case-detail.png)
 
-**Cancel run** stops a run: cases not yet sent become CANCELLED; a case already in flight ends as EXCEPTION. **Run again** sends the same cases again with what is on the page now and replaces the results. Every run really sends requests: run against LOCAL, DEV or UAT only, never production, and never retry a payment case blindly.
+**Cancel run** (top bar) stops a run: cases not yet sent become CANCELLED; a case already in flight ends as EXCEPTION. **Run again** (top bar) sends the same cases again with what is on the page now and replaces the results. Every run really sends requests: run against LOCAL, DEV or UAT only, never production, and never retry a payment case blindly.
 
 Results are kept in the tool's memory for 1 hour after the run (by default) and are lost when the tool restarts.
 
-**Save your work**: **Export config** (on **4. Test cases**) downloads a `.json` file with the token steps, the curl, the rules, the cases and the run options. Captured token values are never saved, but the curls are saved as you pasted them, including their own `Authorization` headers: keep the file private. **Import config** (on **1. Curl**) loads such a file back and analyzes the curls again.
+**Save your work**: **Export config** (top of **Configuration**) downloads a `.json` file with the token steps, the curl, the rules, the cases and the run options. Captured token values are never saved, but the curls are saved as you pasted them, including their own `Authorization` headers: keep the file private. **Import config** (next to it) loads such a file back and analyzes the curls again.
 
 ## 8. When the curl cannot be used
 
