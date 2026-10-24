@@ -52,6 +52,8 @@ const (
 	ErrInvalidResponse = "INVALID_RESPONSE"
 	ErrCancelled       = "CANCELLED"
 	ErrPolicy          = "POLICY"
+	ErrPrepareFailed   = "PREPARE_FAILED"
+	ErrInternal        = "INTERNAL"
 )
 
 // RunRepository keeps runs while they execute and for a while after
@@ -68,3 +70,29 @@ var (
 	ErrRunNotFound = errors.New("run not found or expired")
 	ErrStoreFull   = errors.New("too many runs are in progress")
 )
+
+// Event is one change of a run pushed to watchers (BRD-001 §15.5).
+type Event struct {
+	Kind string          // EventCase or EventDone
+	Case *run.CaseResult // for EventCase
+	Run  *run.Run        // for EventDone: the final state
+}
+
+// Event kinds.
+const (
+	EventCase = "case"
+	EventDone = "done"
+)
+
+// EventPublisher fans run events out to watchers. Publish never blocks:
+// a watcher that cannot keep up is dropped and its channel closed.
+type EventPublisher interface {
+	Publish(runID string, ev Event)
+	Subscribe(runID string) (events <-chan Event, cancel func())
+}
+
+// Clock tells the time; tests replace it.
+type Clock interface{ Now() time.Time }
+
+// IDGenerator makes run IDs.
+type IDGenerator interface{ NewID() string }
