@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { cancelRun, startRun, watchRun } from '../api/runs'
 import { Alert, App, Button, Card, Flex, Segmented, Tag, Typography } from 'antd'
 import { getHealth } from '../api/health'
 import { parseCurl } from '../api/parse'
 import { tryPrepare } from '../api/prepare'
-import type { Capture, CaseRow, FieldRule, ParseResponse, RunOptionsValue, StepResult } from '../types/api'
+import type { Capture, CaseResult, CaseRow, FieldRule, ParseResponse, RunOptionsValue, RunStatus, StartRunRequest, StepResult } from '../types/api'
 import { useI18n } from '../i18n/context'
 import type { Lang } from '../i18n/messages'
 import CurlInput from '../components/CurlInput'
@@ -12,7 +13,8 @@ import FieldRuleTable from '../components/FieldRuleTable'
 import PrepareSteps, { type PrepareStepState } from '../components/PrepareSteps'
 import CaseTable from '../components/CaseTable'
 import RunOptions from '../components/RunOptions'
-import { remapRows, sampleRow } from '../lib/cases'
+import ResultView from '../components/ResultView'
+import { remapRows, rowProblems, sampleRow } from '../lib/cases'
 import { downloadConfig, parseConfig, type ConfigFile } from '../lib/config-file'
 
 type Health = { state: 'checking' } | { state: 'ok'; version: string } | { state: 'down'; message: string }
@@ -24,7 +26,8 @@ function errorMessage(err: unknown): string {
 /**
  * The single API Case Runner page (BRD-001 §16): optional token steps, the
  * curl panel, then the configuration below it once the curl is analyzed:
- * field rules, the case table and the run options.
+ * field rules, the case table and the run options; the results appear
+ * below once a run starts.
  */
 export default function Workspace() {
   const { t, lang, setLang } = useI18n()
@@ -47,6 +50,12 @@ export default function Workspace() {
   const [options, setOptions] = useState<RunOptionsValue>({ concurrency: 5, timeoutSec: 30 })
   const nextRowId = useRef(1)
   const fileInput = useRef<HTMLInputElement>(null)
+
+  const [runState, setRunState] = useState<{ id: string; status: RunStatus; results: CaseResult[] }>()
+  const [starting, setStarting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const stopWatching = useRef<() => void>(undefined)
+  useEffect(() => () => stopWatching.current?.(), [])
 
   useEffect(() => {
     const ctrl = new AbortController()
@@ -185,6 +194,71 @@ export default function Workspace() {
     }
   }
 
+  function runRequest(p: ParseResponse): StartRunRequest {
+    return {
+      template: p.template,
+      fields: p.fields.map((f) => ({ path: f.path, type: f.type, rule: rules[f.path] ?? 'REQUIRED' })),
+      cases: rows.map((r, i) => ({ no: i + 1, name: r.name, values: r.values, expect: r.expect })),
+      ...(steps.length > 0 && {
+        prepare: {
+          steps: steps.map((s) => ({ template: s.parsed!.template, captures: s.captures.filter((c) => c.var !== '' || c.path !== '') })),
+          injectToken,
+        },
+      }),
+      options: { concurrency: options.concurrency, timeoutMs: options.timeoutSec * 1000 },
+    }
+  }
+
+  // Starts a run and follows it over SSE (BRD-001 §15.5); the backend validates again.
+  async function run() {
+    if (!parsed) return
+    const blocked = rows.filter((r) => rowProblems(r, parsed.fields, rules).length > 0).length
+    if (blocked > 0) {
+      const go = await modal.confirm({
+        title: t('run.blockedTitle', { n: blocked }),
+        content: t('run.blockedBody'),
+        okText: t('run.button'),
+        cancelText: t('config.cancel'),
+      })
+      if (!go) return
+    }
+    setStarting(true)
+    try {
+      const started = await startRun(runRequest(parsed))
+      stopWatching.current?.()
+      setRunState({ id: started.runId, status: 'RUNNING', results: [] })
+      stopWatching.current = watchRun(started.runId, {
+        onSnapshot: (snap) => setRunState({ id: snap.runId, status: snap.status, results: snap.results }),
+        onCase: (c) =>
+          setRunState((prev) => {
+            if (!prev || prev.id !== started.runId) return prev
+            const results = [...prev.results]
+            results[c.caseIndex] = c
+            return { ...prev, results }
+          }),
+        onDone: (d) => setRunState((prev) => (prev && prev.id === d.runId ? { ...prev, status: d.status } : prev)),
+        onError: (msg) => message.error(`${t('results.lost')}: ${msg}`),
+      })
+    } catch (err) {
+      message.error(`${t('run.failed')}: ${errorMessage(err)}`)
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  async function cancel() {
+    if (!runState) return
+    setCancelling(true)
+    try {
+      await cancelRun(runState.id)
+    } catch (err) {
+      message.error(errorMessage(err))
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const stepsReady = steps.every((s) => s.parsed)
   const knownVars = steps.flatMap((s) => s.captures.map((c) => c.var)).filter((v) => v !== '')
   const tokenInjected = steps.length > 0 && injectToken
 
@@ -290,7 +364,29 @@ export default function Workspace() {
                   onDuplicate={duplicateRow}
                 />
                 <RunOptions value={options} onChange={setOptions} sequential={steps.length > 0} />
+                <Flex gap={12} align="center">
+                  <Button
+                    type="primary"
+                    onClick={() => void run()}
+                    loading={starting}
+                    disabled={rows.length === 0 || !stepsReady || runState?.status === 'RUNNING'}
+                  >
+                    {t('run.button')}
+                  </Button>
+                  {!stepsReady && <Typography.Text type="secondary">{t('prepare.needAnalyze')}</Typography.Text>}
+                </Flex>
               </Flex>
+            </Card>
+          )}
+          {runState && (
+            <Card title={t('results.card')}>
+              <ResultView
+                status={runState.status}
+                results={runState.results}
+                onCancel={() => void cancel()}
+                onRunAgain={() => void run()}
+                cancelling={cancelling}
+              />
             </Card>
           )}
         </>
