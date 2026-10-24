@@ -40,7 +40,7 @@ Nếu developer đưa sẵn chương trình đã build (`caserunner.exe` trên W
 Trang có một thanh trên màu tối và hai cột:
 
 - **Thanh trên**: nút **Chạy** (thành **Huỷ run** khi đang chạy, và **Chạy lại** sau đó), số case theo từng trạng thái, tag **BE OK** kèm phiên bản khi tool đã sẵn sàng, và nút **VI / EN** để đổi ngôn ngữ (lựa chọn được ghi nhớ).
-- **Cột trái, Cấu hình**: các bước mô tả request, **0. Lấy token**, **1. Curl**, **2. Request** và **3. Field rules**. Bấm vào tiêu đề để mở hoặc thu gọn; bước đang thu gọn hiện một dòng tóm tắt bên phải, ví dụ *POST https://…* hay *5 field · 4 Required*. **Nhập cấu hình** và **Xuất cấu hình** nằm ở đầu cột này.
+- **Cột trái, Cấu hình**: các bước mô tả request, **0. Lấy token**, **1. Curl**, **2. Request** và **3. Field rules**. Bấm vào tiêu đề để mở hoặc thu gọn; bước đang thu gọn hiện một dòng tóm tắt bên phải, ví dụ *POST https://…* hay *5 field · 4 Required*. **Nhập cấu hình** và **Xuất cấu hình** nằm ở đầu cột này. Nút **«** thu cột thành một dải hẹp để bảng case và kết quả dùng hết bề ngang; bấm vào dải đó để mở lại.
 - **Cột phải**: **4. Test case** và bên dưới là **5. Kết quả**.
 
 Khi cửa sổ hẹp (dưới 1200 pixel), cột phải chuyển xuống dưới cột trái.

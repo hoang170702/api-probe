@@ -40,7 +40,7 @@ If a developer hands you a ready-built program (`caserunner.exe` on Windows), yo
 The page has a dark top bar and two columns:
 
 - **Top bar**: the **Run** button (it becomes **Cancel run** while a run is in progress, and **Run again** afterwards), a count of each result status, the **BE OK** tag with the version when the tool is ready, and the **VI / EN** switch, which changes the language and is remembered.
-- **Left, Configuration**: the steps that describe the request, **0. Token**, **1. Curl**, **2. Request** and **3. Field rules**. Click a title to open or close it; a closed step shows a one-line summary on the right, such as *POST https://…* or *5 fields · 4 Required*. **Import config** and **Export config** are at the top of this column.
+- **Left, Configuration**: the steps that describe the request, **0. Token**, **1. Curl**, **2. Request** and **3. Field rules**. Click a title to open or close it; a closed step shows a one-line summary on the right, such as *POST https://…* or *5 fields · 4 Required*. **Import config** and **Export config** are at the top of this column. The **«** button hides the column to a thin rail so the cases and results get the whole width; click the rail to show it again.
 - **Right**: **4. Test cases** and, below it, **5. Results**.
 
 On a narrow window (under 1200 pixels) the right column moves below the left one.
