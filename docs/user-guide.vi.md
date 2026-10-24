@@ -37,13 +37,14 @@ Khi thấy dòng `listening`, mở **http://127.0.0.1:8080** trên trình duyệ
 
 Nếu developer đưa sẵn chương trình đã build (`caserunner.exe` trên Windows) thì bạn chỉ cần bước cuối này.
 
-Trang có một thanh trên màu tối và hai cột:
+Trang có một thanh trên màu tối và một cột ở giữa:
 
 - **Thanh trên**: nút **Chạy** (thành **Huỷ run** khi đang chạy, và **Chạy lại** sau đó), số case theo từng trạng thái, tag **BE OK** kèm phiên bản khi tool đã sẵn sàng, và nút **VI / EN** để đổi ngôn ngữ (lựa chọn được ghi nhớ).
-- **Cột trái, Cấu hình**: các bước mô tả request, **0. Lấy token**, **1. Curl**, **2. Request** và **3. Field rules**. Bấm vào tiêu đề để mở hoặc thu gọn; bước đang thu gọn hiện một dòng tóm tắt bên phải, ví dụ *POST https://…* hay *5 field · 4 Required*. **Nhập cấu hình** và **Xuất cấu hình** nằm ở đầu cột này. Nút **«** thu cột thành một dải hẹp để bảng case và kết quả dùng hết bề ngang; bấm vào dải đó để mở lại.
-- **Cột phải**: **4. Test case** (một thẻ tóm tắt; bảng case mở trong popup) và bên dưới là **5. Kết quả**.
+- **Cấu hình**: các bước mô tả request, **0. Lấy token**, **1. Curl**, **2. Request** và **3. Field rules**. Bấm vào tiêu đề để mở hoặc thu gọn; bước đang thu gọn hiện một dòng tóm tắt bên phải, ví dụ *POST https://…* hay *5 field · 4 Required*. **Nhập cấu hình** và **Xuất cấu hình** nằm ở đầu thẻ này.
+- **4. Test case**: một thẻ tóm tắt; bảng case mở trong popup.
+- **5. Kết quả**: được điền dần trong lúc chạy.
 
-Khi cửa sổ hẹp (dưới 1200 pixel), cột phải chuyển xuống dưới cột trái.
+Popup case tự mở sau khi Analyze một curl JSON; bấm **Chạy** thì popup đóng và trang cuộn tới phần kết quả.
 
 ![Toàn trang sau một lần chạy (giao diện tiếng Anh)](images/09-overview.png)
 
@@ -125,7 +126,7 @@ Khi chạy case, các bước lấy token chạy lại **trước mỗi case**, 
 
 ## 7. Nhập và chạy test case
 
-**4. Test case** hiện ở cột phải khi body là JSON. Thẻ này cho biết có bao nhiêu case và bao nhiêu case sẽ bị chặn, kèm tuỳ chọn chạy; bấm **Sửa test case** để mở bảng case trong một popup lớn. Bảng có một cột cho mỗi field, thêm **Tên case** và **Expect**. Sau khi Analyze, bảng có sẵn một dòng điền giá trị lấy từ curl. Đóng popup bằng **Đóng** (các dòng vẫn được giữ), hoặc bấm **Chạy** trong popup để đóng và chạy luôn.
+Khi Analyze một curl JSON, bảng case mở ra trong một popup lớn. Sau đó thẻ **4. Test case** trên trang cho biết có bao nhiêu case và bao nhiêu case sẽ bị chặn, kèm tuỳ chọn chạy; **Sửa test case** mở lại popup. Bảng có một cột cho mỗi field, thêm **Tên case** và **Expect**. Sau khi Analyze, bảng có sẵn một dòng điền giá trị lấy từ curl. Đóng popup bằng **Đóng** hoặc **×**, hoặc bấm **Chạy** trong popup để đóng và chạy luôn; cách nào thì các dòng cũng được giữ, kể cả sau khi chạy. Bảng chỉ trở về một dòng mẫu khi bạn bấm **Xoá hết case** (có hỏi lại), hoặc khi Analyze curl của **API khác** (method khác, hoặc địa chỉ khác khi bỏ phần sau dấu `?`). Analyze lại cùng API với body, header hay query khác thì vẫn giữ. Tải lại trang thì mất.
 
 ![Bảng case với bốn case](images/06-test-cases-vi.png)
 

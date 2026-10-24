@@ -37,13 +37,14 @@ When `listening` appears, open **http://127.0.0.1:8080** in a browser. Leave the
 
 If a developer hands you a ready-built program (`caserunner.exe` on Windows), you only need this last step.
 
-The page has a dark top bar and two columns:
+The page has a dark top bar and one centered column:
 
 - **Top bar**: the **Run** button (it becomes **Cancel run** while a run is in progress, and **Run again** afterwards), a count of each result status, the **BE OK** tag with the version when the tool is ready, and the **VI / EN** switch, which changes the language and is remembered.
-- **Left, Configuration**: the steps that describe the request, **0. Token**, **1. Curl**, **2. Request** and **3. Field rules**. Click a title to open or close it; a closed step shows a one-line summary on the right, such as *POST https://…* or *5 fields · 4 Required*. **Import config** and **Export config** are at the top of this column. The **«** button hides the column to a thin rail so the cases and results get the whole width; click the rail to show it again.
-- **Right**: **4. Test cases** (a short summary; the table opens in a popup) and, below it, **5. Results**.
+- **Configuration**: the steps that describe the request, **0. Token**, **1. Curl**, **2. Request** and **3. Field rules**. Click a title to open or close it; a closed step shows a one-line summary on the right, such as *POST https://…* or *5 fields · 4 Required*. **Import config** and **Export config** are at the top of this card.
+- **4. Test cases**: a short summary; the case table opens in a popup.
+- **5. Results**: filled in live while a run is in progress.
 
-On a narrow window (under 1200 pixels) the right column moves below the left one.
+The case popup opens by itself after you analyze a JSON curl; after **Run** it closes and the page scrolls to the results.
 
 ![The whole page after a run](images/09-overview.png)
 
@@ -125,7 +126,7 @@ When cases run, the token steps run again **before every case**, so every case g
 
 ## 7. Write and run test cases
 
-**4. Test cases** appears in the right column when the body is JSON. It shows how many cases there are and how many will be blocked, with the run options; click **Edit test cases** to open the case table in a large popup. The table has one column per field, plus **Case name** and **Expect**. After Analyze it already holds one row filled with the values from your curl. Close the popup with **Close** (your rows are kept), or click **Run** in it to close it and start the run.
+When a JSON curl is analyzed, the case table opens in a large popup. Afterwards **4. Test cases** on the page shows how many cases there are and how many will be blocked, with the run options; **Edit test cases** opens the popup again. The table has one column per field, plus **Case name** and **Expect**. After Analyze it already holds one row filled with the values from your curl. Close the popup with **Close** or **×**, or click **Run** in it to close it and start the run; either way your rows are kept, also after the run. They are reset to one sample row only when you click **Clear cases** (it asks first), or when you analyze a curl for **another API** (another method, or another address without the part after `?`). Analyzing the same API again, with other body values, headers or query, keeps them. Reloading the page loses them.
 
 ![The case table with four cases](images/06-test-cases.png)
 
