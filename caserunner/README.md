@@ -5,7 +5,7 @@ Paste a `curl`, define test cases in a table, fire them in parallel against the 
 - How to use it: [user guide](../docs/user-guide.md) ([Tiếng Việt](../docs/user-guide.vi.md))
 - Design and requirements: [BRD-001](../docs/brd/BRD-001.md) ([Tiếng Việt](../docs/brd/BRD-001.vi.md))
 
-Status: Steps 0–3 and 3b of the implementation plan (BRD-001 §18) — optional token steps (with Try), paste a curl, see the request and every field of its JSON body with a Required/Unrequired rule; UI in Vietnamese and English. Cases and runs come next.
+Status: Steps 0–9 and 3b of the implementation plan (BRD-001 §18) — optional token steps (with Try), paste a curl, see the request and every field of its JSON body with a Required/Unrequired rule, enter cases with an expect code, run them with live results over SSE, cancel and run again, export/import the configuration; UI in Vietnamese and English. Excel/PDF reports (Step 10) come next.
 
 ## Requirements
 
@@ -49,6 +49,15 @@ npm run dev
 
 Open http://localhost:5173 — the page shows **BE OK** when the backend is reachable. To point the proxy elsewhere: `CASERUNNER_API_URL=http://127.0.0.1:9090 npm run dev`.
 
+Fake API to run cases against (development only, BRD-001 §18):
+
+```sh
+cd caserunner/backend
+go run ./cmd/mockapi   # 127.0.0.1:9999, or MOCKAPI_BIND
+```
+
+Endpoints (all `POST` unless noted): `/ok`, `/created`, `/error` (500), `/redirect` (302), `/validate` (400 without `data.amount`), `/echo` (returns the body), `/slow?ms=`, `/login` (new token each call), `/secure` (401 without a login token), `GET /hits`, `/hits/reset`.
+
 ## Checks
 
 ```sh
@@ -82,13 +91,21 @@ The backend follows Clean Architecture (BRD-001 §14.1): `adapter` → `usecase`
 caserunner/
 ├── backend/
 │   ├── cmd/caserunner/          # composition root
+│   ├── cmd/mockapi/             # fake API for local runs (not in the release)
 │   └── internal/
 │       ├── config/            # env → Config
 │       ├── domain/curl/       # curl tokenizer + parser (§6)
-│       ├── domain/field/      # ordered JSON tree + field flattening (§7)
-│       ├── usecase/           # application rules: ParseCurl
+│       ├── domain/field/      # ordered JSON tree + field flattening and editing (§7)
+│       ├── domain/flow/       # token steps: captures, {{variables}} (§11.3)
+│       ├── domain/testcase/   # case validation + request building (§9, §10)
+│       ├── domain/run/        # run results + expect classifier (§12)
+│       ├── usecase/           # application rules: ParseCurl, prepare steps, runs
 │       └── adapter/
-│           ├── httpapi/       # HTTP API: routing, handlers, error JSON
+│           ├── httpapi/       # HTTP API: routing, handlers, SSE, error JSON
+│           ├── sender/        # outgoing HTTP client
+│           ├── memstore/      # in-memory runs with TTL
+│           ├── broker/        # run events to SSE subscribers
+│           ├── system/        # clock, run IDs
 │           └── web/           # embedded frontend build (filled by scripts/build.sh)
 └── frontend/                  # Vite + React + TypeScript + Ant Design
 ```

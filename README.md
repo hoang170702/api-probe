@@ -13,8 +13,9 @@
 | Optional **token steps**: run a login curl first, capture the token automatically, put `Authorization: Bearer <token>` on the main request; `{{name}}` variables for multi-step flows; **Try steps** to check it | Available |
 | Host allowlist and `-k` policy for every outgoing request | Available |
 | User interface in Vietnamese and English | Available |
-| Case table (`+` to add a case), each case judged by an **expect** code that must appear in the response | Planned |
-| Running cases (parallel, or one at a time with a fresh token each), real-time results | Planned |
+| Case table (`+` to add a case), each case judged by an **expect** code: the exact HTTP status, or text in the response body or an application header | Available |
+| Running cases (parallel, or one at a time with a fresh token each), real-time results, case details, cancel and run again | Available |
+| Export / import the whole configuration (token steps, curl, rules, cases, options) as a JSON file | Available |
 | Excel and PDF reports | Planned |
 
 Progress by step: [BRD-001 §18](docs/brd/BRD-001.md#18-implementation-plan-small-steps).
@@ -130,7 +131,7 @@ With `CASERUNNER_BIND=0.0.0.0:…` Windows may ask to allow the program through 
 
 ## How to use
 
-The [user guide](docs/user-guide.md) ([Tiếng Việt](docs/user-guide.vi.md)) walks through each screen with screenshots: copying a request as curl, reading the request summary, setting field rules, getting a token first, and what each error message means.
+The [user guide](docs/user-guide.md) ([Tiếng Việt](docs/user-guide.vi.md)) walks through each screen with screenshots: copying a request as curl, reading the request summary, setting field rules, getting a token first, writing and running test cases, reading the results, and what each error message means.
 
 In short:
 
@@ -138,6 +139,8 @@ In short:
 2. **1. Curl** — paste the request to test and click **Analyze** (or press Ctrl+Enter).
 3. **2. Request** — check the method, URL, headers and warnings.
 4. **3. Field rules** — mark each body field **Required** (every case must fill it) or **Unrequired** (a case may leave it out of the request).
+5. **4. Test cases** — one row per case (**+ Add case**), each with an **Expect** code such as `"code":"00"`; set the parallel requests and timeout, then click **Run**.
+6. **5. Results** — SUCCESS / FAILED / EXCEPTION / BLOCKED / CANCELLED arrive live; click a row for the request and response.
 
 ## Configuration
 
@@ -174,7 +177,9 @@ npm install
 npm run dev
 ```
 
-The commands are the same in PowerShell (with `\` in paths). To point the dev server at another backend: `CASERUNNER_API_URL=http://127.0.0.1:9090 npm run dev`, or `$env:CASERUNNER_API_URL = 'http://127.0.0.1:9090'; npm run dev` in PowerShell.
+The commands are the same in PowerShell (with `\` in paths). A fake API for trying runs locally is in `cmd/mockapi` (development only, not part of the build): `go run ./cmd/mockapi` from `caserunner/backend` listens on `127.0.0.1:9999` (`MOCKAPI_BIND` to change) with endpoints such as `POST /ok`, `/validate` (400 without `data.amount`), `/slow?ms=`, `/login` and `/secure` (needs the login token).
+
+To point the dev server at another backend: `CASERUNNER_API_URL=http://127.0.0.1:9090 npm run dev`, or `$env:CASERUNNER_API_URL = 'http://127.0.0.1:9090'; npm run dev` in PowerShell.
 
 Checks:
 
@@ -192,11 +197,12 @@ cd caserunner/frontend && npm run lint && npm run build
 ├── caserunner/                 # API Case Runner
 │   ├── backend/                # Go service (Clean Architecture: adapter → usecase → domain)
 │   │   ├── cmd/caserunner/     # entry point
+│   │   ├── cmd/mockapi/        # fake API for local runs (development only)
 │   │   └── internal/
 │   │       ├── config/         # environment variables
-│   │       ├── domain/         # curl parser, JSON fields, token flow — pure rules, no I/O
-│   │       ├── usecase/        # application rules, host policy, ports
-│   │       └── adapter/        # HTTP API, outgoing sender, embedded web build
+│   │       ├── domain/         # curl parser, JSON fields, token flow, cases, run results — pure rules, no I/O
+│   │       ├── usecase/        # application rules, host policy, runs, ports
+│   │       └── adapter/        # HTTP API + SSE, outgoing sender, run store, event broker, embedded web build
 │   ├── frontend/               # React 19 + TypeScript + Vite + Ant Design 6
 │   └── scripts/                # one-binary build: build.sh (Linux/macOS/WSL), build.ps1 (Windows)
 └── docs/
