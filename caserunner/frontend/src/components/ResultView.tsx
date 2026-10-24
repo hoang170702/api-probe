@@ -47,7 +47,7 @@ export default function ResultView({ status, results }: Props) {
         dataSource={shown}
         pagination={shown.length > 50 ? { pageSize: 50, showSizeChanger: false } : false}
         onRow={(r) => ({ onClick: () => setOpen(r), style: { cursor: 'pointer' } })}
-        scroll={{ x: 'max-content' }}
+        scroll={{ x: 720 }}
         columns={[
           { title: '#', dataIndex: 'caseNo', width: 56, render: (n: number) => `${n}.` },
           { title: t('results.name'), dataIndex: 'name', width: 140 },
@@ -77,8 +77,9 @@ export default function ResultView({ status, results }: Props) {
           {
             title: t('results.reason'),
             dataIndex: 'reason',
+            ellipsis: true,
             render: (v: string) => (
-              <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 360 }}>
+              <Typography.Text ellipsis={{ tooltip: v }}>
                 {v}
               </Typography.Text>
             ),

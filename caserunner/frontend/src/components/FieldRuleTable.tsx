@@ -60,7 +60,7 @@ export default function FieldRuleTable({ fields, rules, onRuleChange, onSetAll }
         {
           title: t('fields.type'),
           dataIndex: 'type',
-          width: 90,
+          width: 84,
           render: (t: FieldType) => <Tag color={TYPE_COLORS[t]}>{t}</Tag>,
         },
         {
@@ -69,7 +69,7 @@ export default function FieldRuleTable({ fields, rules, onRuleChange, onSetAll }
           render: (v: string) => (
             <Typography.Text
               ellipsis={{ tooltip: v }}
-              style={{ maxWidth: 120, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}
+              style={{ maxWidth: 100, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}
             >
               {v}
             </Typography.Text>

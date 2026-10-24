@@ -57,6 +57,7 @@ export default function Workspace() {
   const stopWatching = useRef<() => void>(undefined)
   const [openSections, setOpenSections] = useState<string[]>(['curl'])
   const screens = Grid.useBreakpoint()
+  const [configOpen, setConfigOpen] = useState(true)
   useEffect(() => () => stopWatching.current?.(), [])
 
   useEffect(() => {
@@ -275,6 +276,7 @@ export default function Workspace() {
   const tokenInjected = steps.length > 0 && injectToken
 
   const isJson = parsed?.template.bodyKind === 'json'
+  const wide = screens.xl
   const running = runState?.status === 'RUNNING'
   const counts = runState ? countStatuses(runState.results) : undefined
   const required = parsed ? parsed.fields.filter((f) => (rules[f.path] ?? 'REQUIRED') === 'REQUIRED').length : 0
@@ -392,7 +394,7 @@ export default function Workspace() {
         />
       </Layout.Header>
 
-      <Layout.Content style={{ padding: 20, maxWidth: 1760, width: '100%', margin: '0 auto' }}>
+      <Layout.Content style={{ padding: 24 }}>
         {health.state === 'down' && <Alert style={{ marginBottom: 16 }} type="error" showIcon title={t('health.unreachable')} description={health.message} />}
         <input
           ref={fileInput}
@@ -405,28 +407,48 @@ export default function Workspace() {
             if (f) void importConfig(f)
           }}
         />
-        <Row gutter={[20, 20]} align="top">
-          <Col xs={24} xl={10} xxl={8} style={screens.xl ? { position: 'sticky', top: 76 } : undefined}>
-            <Card
-              title={t('layout.config')}
-              styles={{ body: { padding: 0, ...(screens.xl && { maxHeight: 'calc(100vh - 150px)', overflow: 'auto' }) } }}
-              extra={
-                <Flex gap={8}>
-                  <Button size="small" onClick={() => fileInput.current?.click()}>
-                    {t('config.import')}
+        <Row gutter={[24, 24]} align="top" wrap={!wide}>
+          <Col {...(wide ? { flex: configOpen ? '0 0 540px' : '0 0 56px' } : { span: 24 })} style={wide ? { position: 'sticky', top: 80 } : undefined}>
+            {wide && !configOpen ? (
+              <Card hoverable styles={{ body: { padding: '12px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 } }} onClick={() => setConfigOpen(true)}>
+                <Tooltip title={t('layout.expand')} placement="right">
+                  <Button size="small" type="text" aria-label={t('layout.expand')}>
+                    »
                   </Button>
-                  <Button size="small" disabled={!isJson} onClick={() => downloadConfig(currentConfig())}>
-                    {t('config.export')}
-                  </Button>
-                </Flex>
-              }
-            >
-              <Collapse bordered={false} activeKey={openSections} onChange={(keys) => setOpenSections(keys as string[])} items={sections} />
-            </Card>
+                </Tooltip>
+                <Typography.Text strong style={{ writingMode: 'vertical-rl' }}>
+                  {t('layout.config')}
+                </Typography.Text>
+              </Card>
+            ) : (
+              <Card
+                title={t('layout.config')}
+                styles={{ body: { padding: 0, ...(wide && { maxHeight: 'calc(100vh - 160px)', overflow: 'auto' }) } }}
+                extra={
+                  <Flex gap={8} align="center">
+                    <Button size="small" onClick={() => fileInput.current?.click()}>
+                      {t('config.import')}
+                    </Button>
+                    <Button size="small" disabled={!isJson} onClick={() => downloadConfig(currentConfig())}>
+                      {t('config.export')}
+                    </Button>
+                    {wide && (
+                      <Tooltip title={t('layout.collapse')}>
+                        <Button size="small" type="text" aria-label={t('layout.collapse')} onClick={() => setConfigOpen(false)}>
+                          «
+                        </Button>
+                      </Tooltip>
+                    )}
+                  </Flex>
+                }
+              >
+                <Collapse bordered={false} activeKey={openSections} onChange={(keys) => setOpenSections(keys as string[])} items={sections} />
+              </Card>
+            )}
           </Col>
 
-          <Col xs={24} xl={14} xxl={16}>
-            <Flex vertical gap={20}>
+          <Col {...(wide ? { flex: '1 1 0' } : { span: 24 })} style={{ minWidth: 0 }}>
+            <Flex vertical gap={24}>
               {!parsed && (
                 <Card>
                   <Empty description={t('layout.empty')} />
