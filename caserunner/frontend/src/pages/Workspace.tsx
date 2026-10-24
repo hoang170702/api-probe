@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { cancelRun, startRun, watchRun } from '../api/runs'
-import { Alert, App, Button, Card, Col, Collapse, ConfigProvider, Empty, Flex, Grid, Layout, Modal, Row, Segmented, Tag, theme as antdTheme, Tooltip, Typography, type CollapseProps } from 'antd'
+import { Alert, App, Button, Card, Collapse, ConfigProvider, Empty, Flex, Grid, Layout, Modal, Segmented, Tag, theme as antdTheme, Tooltip, Typography, type CollapseProps } from 'antd'
 import { getHealth } from '../api/health'
 import { parseCurl } from '../api/parse'
 import { tryPrepare } from '../api/prepare'
@@ -25,9 +25,9 @@ function errorMessage(err: unknown): string {
 
 /**
  * The single API Case Runner page (BRD-001 §16): a top bar with Run and the
- * live summary; configuration (token steps, curl, request, field rules) on
- * the left; the case table and the results on the right. Narrow screens
- * stack the two columns.
+ * live summary, then one centered column: configuration (token steps, curl,
+ * request, field rules), a test-case summary whose table opens in a popup,
+ * and the results.
  */
 export default function Workspace() {
   const { t, lang, setLang } = useI18n()
@@ -49,7 +49,10 @@ export default function Workspace() {
   const [rows, setRows] = useState<CaseRow[]>([])
   const [options, setOptions] = useState<RunOptionsValue>({ concurrency: 5, timeoutSec: 30 })
   const nextRowId = useRef(1)
+  // The API the cases were written for; analyzing another one starts over (A15).
+  const caseApi = useRef<string>(undefined)
   const fileInput = useRef<HTMLInputElement>(null)
+  const resultsRef = useRef<HTMLDivElement>(null)
 
   const [runState, setRunState] = useState<{ id: string; status: RunStatus; results: CaseResult[] }>()
   const [starting, setStarting] = useState(false)
@@ -57,7 +60,6 @@ export default function Workspace() {
   const stopWatching = useRef<() => void>(undefined)
   const [openSections, setOpenSections] = useState<string[]>(['curl'])
   const screens = Grid.useBreakpoint()
-  const [configOpen, setConfigOpen] = useState(true)
   const [casesOpen, setCasesOpen] = useState(false)
   useEffect(() => () => stopWatching.current?.(), [])
 
@@ -72,8 +74,16 @@ export default function Workspace() {
   }, [])
 
   // Shows a parsed curl: rules default to Required (D3) and the rows follow
-  // its fields (§8.2), asking first when typed values would be lost.
-  async function applyParsed(res: ParseResponse, prevRules: Record<string, FieldRule>, keepRows: CaseRow[]): Promise<void> {
+  // its fields (§8.2), asking first when typed values would be lost. The
+  // cases and rules are kept only for the same API; another API starts from
+  // one sample row (A15). It returns false when the tester cancels.
+  async function applyParsed(res: ParseResponse, prevRules: Record<string, FieldRule>, keepRows: CaseRow[]): Promise<boolean> {
+    const api = apiKey(res)
+    const sameApi = caseApi.current === undefined || caseApi.current === api
+    if (!sameApi) {
+      prevRules = {}
+      keepRows = []
+    }
     const { rows: next, lost } = remapRows(keepRows, res.fields)
     if (lost > 0) {
       const ok = await modal.confirm({
@@ -82,14 +92,28 @@ export default function Workspace() {
         okText: t('config.continue'),
         cancelText: t('config.cancel'),
       })
-      if (!ok) return
+      if (!ok) return false
     }
+    caseApi.current = api
     setParsed(res)
     // Open the next thing to check: the field rules, or the request when the body cannot run.
     const section = res.template.bodyKind === 'json' ? 'fields' : 'request'
     setOpenSections((prev) => (prev.includes(section) ? prev : [...prev, section]))
     setRules(Object.fromEntries(res.fields.map((f) => [f.path, prevRules[f.path] ?? 'REQUIRED'])))
     setRows(next.length > 0 ? next : [sampleRow(nextRowId.current++, res.fields)])
+    return true
+  }
+
+  function clearRows() {
+    if (!parsed) return
+    modal.confirm({
+      title: t('cases.clearTitle'),
+      content: t('cases.clearBody'),
+      okText: t('cases.clear'),
+      okButtonProps: { danger: true },
+      cancelText: t('config.cancel'),
+      onOk: () => setRows([sampleRow(nextRowId.current++, parsed.fields)]),
+    })
   }
 
   function addRow() {
@@ -104,7 +128,9 @@ export default function Workspace() {
     setAnalyzing(true)
     setParseError(undefined)
     try {
-      await applyParsed(await parseCurl(curl), rules, rows)
+      const res = await parseCurl(curl)
+      // The case popup opens right after a JSON curl is analyzed (A15).
+      if ((await applyParsed(res, rules, rows)) && res.template.bodyKind === 'json') setCasesOpen(true)
     } catch (err) {
       setParsed(undefined)
       setParseError(errorMessage(err))
@@ -196,6 +222,8 @@ export default function Workspace() {
       setParseError(undefined)
       const res = await parseCurl(cfg.curl)
       const imported = cfg.cases.map((c) => ({ id: nextRowId.current++, ...c }))
+      // An imported file brings its own cases, whatever API was shown before.
+      caseApi.current = undefined
       await applyParsed(res, cfg.rules, imported)
     } catch (err) {
       message.error(`${t('config.importFailed')}: ${errorMessage(err)}`)
@@ -235,6 +263,8 @@ export default function Workspace() {
       const started = await startRun(runRequest(parsed))
       stopWatching.current?.()
       setRunState({ id: started.runId, status: 'RUNNING', results: [] })
+      // Back on the main screen, bring the results into view.
+      window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
       stopWatching.current = watchRun(started.runId, {
         onSnapshot: (snap) =>
           setRunState((prev) => (prev && prev.id !== snap.runId ? prev : { id: snap.runId, status: snap.status, results: snap.results })),
@@ -277,7 +307,6 @@ export default function Workspace() {
   const tokenInjected = steps.length > 0 && injectToken
 
   const isJson = parsed?.template.bodyKind === 'json'
-  const wide = screens.xl
   const blockedRows = parsed ? rows.filter((r) => rowProblems(r, parsed.fields, rules).length > 0).length : 0
   const canRun = isJson && rows.length > 0 && stepsReady
   const running = runState?.status === 'RUNNING'
@@ -397,7 +426,7 @@ export default function Workspace() {
         />
       </Layout.Header>
 
-      <Layout.Content style={{ padding: 24 }}>
+      <Layout.Content style={{ padding: 24, maxWidth: 1200, width: '100%', margin: '0 auto' }}>
         {health.state === 'down' && <Alert style={{ marginBottom: 16 }} type="error" showIcon title={t('health.unreachable')} description={health.message} />}
         <input
           ref={fileInput}
@@ -410,83 +439,51 @@ export default function Workspace() {
             if (f) void importConfig(f)
           }}
         />
-        <Row gutter={[24, 24]} align="top" wrap={!wide}>
-          <Col {...(wide ? { flex: configOpen ? '0 0 540px' : '0 0 56px' } : { span: 24 })} style={wide ? { position: 'sticky', top: 80 } : undefined}>
-            {wide && !configOpen ? (
-              <Card hoverable styles={{ body: { padding: '12px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 } }} onClick={() => setConfigOpen(true)}>
-                <Tooltip title={t('layout.expand')} placement="right">
-                  <Button size="small" type="text" aria-label={t('layout.expand')}>
-                    »
-                  </Button>
-                </Tooltip>
-                <Typography.Text strong style={{ writingMode: 'vertical-rl' }}>
-                  {t('layout.config')}
+        <Flex vertical gap={24}>
+          <Card
+            title={t('layout.config')}
+            styles={{ body: { padding: 0 } }}
+            extra={
+              <Flex gap={8} align="center">
+                <Button size="small" onClick={() => fileInput.current?.click()}>
+                  {t('config.import')}
+                </Button>
+                <Button size="small" disabled={!isJson} onClick={() => downloadConfig(currentConfig())}>
+                  {t('config.export')}
+                </Button>
+              </Flex>
+            }
+          >
+            <Collapse bordered={false} activeKey={openSections} onChange={(keys) => setOpenSections(keys as string[])} items={sections} />
+          </Card>
+          {parsed && !isJson && <Alert type="warning" showIcon title={t('request.unsupported')} description={t('request.unsupportedDesc')} />}
+          {parsed && isJson && (
+            <Card
+              title={t('cases.card')}
+              extra={
+                <Button type="primary" ghost onClick={() => setCasesOpen(true)}>
+                  {t('cases.open')}
+                </Button>
+              }
+            >
+              <Flex vertical gap={16}>
+                <Typography.Text strong type={blockedRows > 0 ? 'danger' : undefined}>
+                  {t('cases.summary', { n: rows.length, blocked: blockedRows })}
                 </Typography.Text>
-              </Card>
-            ) : (
-              <Card
-                title={t('layout.config')}
-                styles={{ body: { padding: 0, ...(wide && { maxHeight: 'calc(100vh - 160px)', overflow: 'auto' }) } }}
-                extra={
-                  <Flex gap={8} align="center">
-                    <Button size="small" onClick={() => fileInput.current?.click()}>
-                      {t('config.import')}
-                    </Button>
-                    <Button size="small" disabled={!isJson} onClick={() => downloadConfig(currentConfig())}>
-                      {t('config.export')}
-                    </Button>
-                    {wide && (
-                      <Tooltip title={t('layout.collapse')}>
-                        <Button size="small" type="text" aria-label={t('layout.collapse')} onClick={() => setConfigOpen(false)}>
-                          «
-                        </Button>
-                      </Tooltip>
-                    )}
-                  </Flex>
-                }
-              >
-                <Collapse bordered={false} activeKey={openSections} onChange={(keys) => setOpenSections(keys as string[])} items={sections} />
-              </Card>
-            )}
-          </Col>
-
-          <Col {...(wide ? { flex: '1 1 0' } : { span: 24 })} style={{ minWidth: 0 }}>
-            <Flex vertical gap={24}>
-              {!parsed && (
-                <Card>
-                  <Empty description={t('layout.empty')} />
-                </Card>
+                <RunOptions value={options} onChange={setOptions} sequential={steps.length > 0} />
+              </Flex>
+            </Card>
+          )}
+          {parsed && isJson && (
+            <Card ref={resultsRef} title={t('results.card')} style={{ scrollMarginTop: 80 }}>
+              {runState ? (
+                <ResultView status={runState.status} results={runState.results} />
+              ) : (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('results.empty')} />
               )}
-              {parsed && !isJson && <Alert type="warning" showIcon title={t('request.unsupported')} description={t('request.unsupportedDesc')} />}
-              {parsed && isJson && (
-                <Card
-                  title={t('cases.card')}
-                  extra={
-                    <Button type="primary" ghost onClick={() => setCasesOpen(true)}>
-                      {t('cases.open')}
-                    </Button>
-                  }
-                >
-                  <Flex vertical gap={16}>
-                    <Typography.Text strong type={blockedRows > 0 ? 'danger' : undefined}>
-                      {t('cases.summary', { n: rows.length, blocked: blockedRows })}
-                    </Typography.Text>
-                    <RunOptions value={options} onChange={setOptions} sequential={steps.length > 0} />
-                  </Flex>
-                </Card>
-              )}
-              {parsed && isJson && (
-                <Card title={t('results.card')}>
-                  {runState ? (
-                    <ResultView status={runState.status} results={runState.results} />
-                  ) : (
-                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('results.empty')} />
-                  )}
-                </Card>
-              )}
-            </Flex>
-          </Col>
-        </Row>
+            </Card>
+          )}
+        </Flex>
         {parsed && isJson && (
           <Modal
             open={casesOpen}
@@ -497,6 +494,9 @@ export default function Workspace() {
             styles={{ body: { maxHeight: 'calc(100vh - 200px)', overflow: 'auto' } }}
             footer={
               <Flex justify="end" gap={8}>
+                <Button danger style={{ marginInlineEnd: 'auto' }} onClick={clearRows}>
+                  {t('cases.clear')}
+                </Button>
                 <Button onClick={() => setCasesOpen(false)}>{t('cases.close')}</Button>
                 <Button
                   type="primary"
@@ -532,6 +532,18 @@ function SectionLabel({ title, summary }: { title: string; summary: string }) {
       </Typography.Text>
     </Flex>
   )
+}
+
+// apiKey names the API a curl calls: its method and URL without the query
+// string, so editing body values, headers or the query keeps the cases.
+function apiKey(res: ParseResponse): string {
+  const { method, url } = res.template
+  try {
+    const u = new URL(url)
+    return `${method.toUpperCase()} ${u.origin}${u.pathname}`
+  } catch {
+    return `${method.toUpperCase()} ${url.split('?')[0]}`
+  }
 }
 
 function HealthTag({ health }: { health: Health }) {
