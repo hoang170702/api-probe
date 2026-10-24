@@ -1,8 +1,12 @@
 # Go
-curlcase/backend/bin/
+caserunner/backend/bin/
 
 # Editors / OS
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Frontend build embedded into the Go binary by caserunner/scripts/build.sh
+caserunner/backend/internal/adapter/web/dist/*
+!caserunner/backend/internal/adapter/web/dist/.gitkeep
