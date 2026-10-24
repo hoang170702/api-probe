@@ -42,6 +42,7 @@ func TestEndpoints(t *testing.T) {
 		{"/validate", `{"data":{"note":"x"}}`, 400, "ERR_AMOUNT_REQUIRED"},
 		{"/validate", `not json`, 400, "ERR_BAD_JSON"},
 		{"/slow?ms=20", "", 200, "slow"},
+		{"/echo", `{"acc":12345678901234567890}`, 200, `{"acc":12345678901234567890}`},
 	}
 	for _, tt := range tests {
 		status, body := call(t, srv, "POST", tt.path, "", tt.body)

@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -45,6 +46,7 @@ func (a *api) handler() http.Handler {
 	mux.HandleFunc("POST /error", func(w http.ResponseWriter, _ *http.Request) { reply(w, 500, `{"code":"ERR_INTERNAL"}`) })
 	mux.HandleFunc("POST /redirect", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/ok", http.StatusFound) })
 	mux.HandleFunc("POST /validate", validate)
+	mux.HandleFunc("POST /echo", echo)
 	mux.HandleFunc("POST /slow", slow)
 	mux.HandleFunc("POST /login", a.login)
 	mux.HandleFunc("POST /secure", a.secure)
@@ -86,6 +88,13 @@ func validate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, 200, `{"code":"00"}`)
+}
+
+// echo answers 200 with the request body exactly as received.
+func echo(w http.ResponseWriter, r *http.Request) {
+	b, _ := io.ReadAll(r.Body)
+	w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+	_, _ = w.Write(b)
 }
 
 // slow waits ?ms= milliseconds (default 1000, at most 60000) before answering.
