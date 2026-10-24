@@ -18,6 +18,7 @@ type Info struct {
 type UseCases struct {
 	ParseCurl  usecase.ParseCurl
 	TryPrepare usecase.TryPrepare
+	Runs       *usecase.Runs
 }
 
 // NewHandler returns the API handler with logging and panic recovery
@@ -30,6 +31,10 @@ func NewHandler(info Info, uc UseCases, app http.Handler) http.Handler {
 		{http.MethodGet, "/api/health", health(info)},
 		{http.MethodPost, "/api/parse", parseCurl(uc.ParseCurl)},
 		{http.MethodPost, "/api/prepare/try", tryPrepare(uc.TryPrepare)},
+		{http.MethodPost, "/api/runs", startRun(uc.Runs)},
+		{http.MethodGet, "/api/runs/{id}", getRun(uc.Runs)},
+		{http.MethodGet, "/api/runs/{id}/events", runEvents(uc.Runs)},
+		{http.MethodPost, "/api/runs/{id}/cancel", cancelRun(uc.Runs)},
 	}
 	mux := http.NewServeMux()
 	for _, rt := range routes {
