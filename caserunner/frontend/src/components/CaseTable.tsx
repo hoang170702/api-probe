@@ -31,10 +31,10 @@ export default function CaseTable({ fields, rules, rows, onChange, onAdd, onDupl
         scroll={{ x: 'max-content' }}
         locale={{ emptyText: t('cases.empty') }}
         columns={[
-          { title: '#', width: 56, fixed: 'left', render: (_, __, i) => `${i + 1}.` },
+          { title: '#', width: 44, fixed: 'left', render: (_, __, i) => `${i + 1}.` },
           {
             title: t('cases.name'),
-            width: 200,
+            width: 140,
             fixed: 'left',
             render: (_, row, i) => (
               <Input
@@ -49,7 +49,7 @@ export default function CaseTable({ fields, rules, rows, onChange, onAdd, onDupl
             const required = (rules[f.path] ?? 'REQUIRED') === 'REQUIRED'
             return {
               key: f.path,
-              width: 180,
+              width: 160,
               title: (
                 <Flex vertical gap={2}>
                   <Typography.Text code style={{ fontSize: 12 }}>
@@ -82,7 +82,7 @@ export default function CaseTable({ fields, rules, rows, onChange, onAdd, onDupl
           }),
           {
             title: t('cases.expect'),
-            width: 220,
+            width: 180,
             fixed: 'right',
             render: (_, row) => {
               const missing = row.expect.trim() === ''
@@ -102,16 +102,20 @@ export default function CaseTable({ fields, rules, rows, onChange, onAdd, onDupl
           },
           {
             title: '',
-            width: 150,
+            width: 72,
             fixed: 'right',
             render: (_, row) => (
-              <Flex gap={4}>
-                <Button size="small" type="text" disabled={rows.length >= MAX_CASES} onClick={() => onDuplicate(row.id)}>
-                  {t('cases.duplicate')}
-                </Button>
-                <Button size="small" type="text" danger onClick={() => onChange(rows.filter((r) => r.id !== row.id))}>
-                  {t('cases.delete')}
-                </Button>
+              <Flex gap={2}>
+                <Tooltip title={t('cases.duplicate')}>
+                  <Button size="small" type="text" aria-label={t('cases.duplicate')} disabled={rows.length >= MAX_CASES} onClick={() => onDuplicate(row.id)}>
+                    <CopyIcon />
+                  </Button>
+                </Tooltip>
+                <Tooltip title={t('cases.delete')}>
+                  <Button size="small" type="text" danger aria-label={t('cases.delete')} onClick={() => onChange(rows.filter((r) => r.id !== row.id))}>
+                    <DeleteIcon />
+                  </Button>
+                </Tooltip>
               </Flex>
             ),
           },
@@ -127,5 +131,23 @@ export default function CaseTable({ fields, rules, rows, onChange, onAdd, onDupl
         {rows.length >= MAX_CASES && <Typography.Text type="warning">{t('cases.max', { max: MAX_CASES })}</Typography.Text>}
       </Flex>
     </Flex>
+  )
+}
+
+// Small inline icons: the project has no icon package.
+function CopyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <rect x="5" y="5" width="9" height="9" rx="1.5" />
+      <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5" />
+    </svg>
+  )
+}
+
+function DeleteIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+      <path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.5 7v4M9.5 7v4" />
+    </svg>
   )
 }

@@ -52,7 +52,6 @@ export default function FieldRuleTable({ fields, rules, onRuleChange, onSetAll }
         </Flex>
       )}
       columns={[
-        { title: '#', width: 56, render: (_, __, i) => i + 1 },
         {
           title: t('fields.path'),
           dataIndex: 'path',
@@ -61,7 +60,7 @@ export default function FieldRuleTable({ fields, rules, onRuleChange, onSetAll }
         {
           title: t('fields.type'),
           dataIndex: 'type',
-          width: 110,
+          width: 90,
           render: (t: FieldType) => <Tag color={TYPE_COLORS[t]}>{t}</Tag>,
         },
         {
@@ -70,7 +69,7 @@ export default function FieldRuleTable({ fields, rules, onRuleChange, onSetAll }
           render: (v: string) => (
             <Typography.Text
               ellipsis={{ tooltip: v }}
-              style={{ maxWidth: 360, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}
+              style={{ maxWidth: 120, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}
             >
               {v}
             </Typography.Text>
@@ -78,11 +77,11 @@ export default function FieldRuleTable({ fields, rules, onRuleChange, onSetAll }
         },
         {
           title: t('fields.rule'),
-          width: 150,
+          width: 130,
           render: (_, f) => (
             <Select<FieldRule>
               size="small"
-              style={{ width: 130 }}
+              style={{ width: 118 }}
               value={rules[f.path] ?? 'REQUIRED'}
               options={RULE_OPTIONS}
               onChange={(rule) => onRuleChange(f.path, rule)}

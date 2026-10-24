@@ -1,4 +1,4 @@
-import type { CaseRow, Field, FieldRule } from '../types/api'
+import type { CaseResult, CaseRow, CaseStatus, Field, FieldRule } from '../types/api'
 
 /** The most cases one run accepts (BRD-001 OD4, CASERUNNER_MAX_CASES default). */
 export const MAX_CASES = 1000
@@ -37,4 +37,25 @@ export function remapRows(rows: CaseRow[], fields: Field[]): { rows: CaseRow[]; 
     return { ...row, values }
   })
   return { rows: next, lost }
+}
+
+/** Case statuses that will not change any more. */
+export const FINISHED: CaseStatus[] = ['SUCCESS', 'FAILED', 'EXCEPTION', 'BLOCKED', 'CANCELLED']
+
+/** How many results are in each status. */
+export function countStatuses(results: CaseResult[]): Record<CaseStatus, number> {
+  const c: Record<CaseStatus, number> = { PENDING: 0, RUNNING: 0, SUCCESS: 0, FAILED: 0, EXCEPTION: 0, BLOCKED: 0, CANCELLED: 0 }
+  for (const r of results) c[r.status]++
+  return c
+}
+
+/** Tag color of each case status. */
+export const STATUS_COLOR: Record<CaseStatus, string> = {
+  PENDING: 'default',
+  RUNNING: 'processing',
+  SUCCESS: 'success',
+  FAILED: 'error',
+  EXCEPTION: 'orange',
+  BLOCKED: 'default',
+  CANCELLED: 'default',
 }

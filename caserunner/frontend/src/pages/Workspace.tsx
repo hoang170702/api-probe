@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { cancelRun, startRun, watchRun } from '../api/runs'
-import { Alert, App, Button, Card, Flex, Segmented, Tag, Typography } from 'antd'
+import { Alert, App, Button, Card, Col, Collapse, ConfigProvider, Empty, Flex, Grid, Layout, Row, Segmented, Tag, theme as antdTheme, Tooltip, Typography, type CollapseProps } from 'antd'
 import { getHealth } from '../api/health'
 import { parseCurl } from '../api/parse'
 import { tryPrepare } from '../api/prepare'
@@ -14,7 +14,7 @@ import PrepareSteps, { type PrepareStepState } from '../components/PrepareSteps'
 import CaseTable from '../components/CaseTable'
 import RunOptions from '../components/RunOptions'
 import ResultView from '../components/ResultView'
-import { remapRows, rowProblems, sampleRow } from '../lib/cases'
+import { countStatuses, FINISHED, remapRows, rowProblems, sampleRow, STATUS_COLOR } from '../lib/cases'
 import { downloadConfig, parseConfig, type ConfigFile } from '../lib/config-file'
 
 type Health = { state: 'checking' } | { state: 'ok'; version: string } | { state: 'down'; message: string }
@@ -24,10 +24,10 @@ function errorMessage(err: unknown): string {
 }
 
 /**
- * The single API Case Runner page (BRD-001 §16): optional token steps, the
- * curl panel, then the configuration below it once the curl is analyzed:
- * field rules, the case table and the run options; the results appear
- * below once a run starts.
+ * The single API Case Runner page (BRD-001 §16): a top bar with Run and the
+ * live summary; configuration (token steps, curl, request, field rules) on
+ * the left; the case table and the results on the right. Narrow screens
+ * stack the two columns.
  */
 export default function Workspace() {
   const { t, lang, setLang } = useI18n()
@@ -55,6 +55,8 @@ export default function Workspace() {
   const [starting, setStarting] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const stopWatching = useRef<() => void>(undefined)
+  const [openSections, setOpenSections] = useState<string[]>(['curl'])
+  const screens = Grid.useBreakpoint()
   useEffect(() => () => stopWatching.current?.(), [])
 
   useEffect(() => {
@@ -81,6 +83,9 @@ export default function Workspace() {
       if (!ok) return
     }
     setParsed(res)
+    // Open the next thing to check: the field rules, or the request when the body cannot run.
+    const section = res.template.bodyKind === 'json' ? 'fields' : 'request'
+    setOpenSections((prev) => (prev.includes(section) ? prev : [...prev, section]))
     setRules(Object.fromEntries(res.fields.map((f) => [f.path, prevRules[f.path] ?? 'REQUIRED'])))
     setRows(next.length > 0 ? next : [sampleRow(nextRowId.current++, res.fields)])
   }
@@ -181,6 +186,7 @@ export default function Workspace() {
         restored.push(step)
       }
       setSteps(restored)
+      if (restored.length > 0) setOpenSections((prev) => (prev.includes('token') ? prev : [...prev, 'token']))
       setStepResults(undefined)
       setInjectToken(cfg.prepare.injectToken)
       setOptions(cfg.options)
@@ -268,29 +274,16 @@ export default function Workspace() {
   const knownVars = steps.flatMap((s) => s.captures.map((c) => c.var)).filter((v) => v !== '')
   const tokenInjected = steps.length > 0 && injectToken
 
-  return (
-    <Flex vertical gap={24}>
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Typography.Title level={2} style={{ margin: 0 }}>
-          {t('app.title')}
-        </Typography.Title>
-        <Flex gap={12} align="center">
-          <Segmented<Lang>
-            aria-label={t('lang.switch')}
-            value={lang}
-            onChange={setLang}
-            options={[
-              { label: 'VI', value: 'vi' },
-              { label: 'EN', value: 'en' },
-            ]}
-          />
-          <HealthTag health={health} />
-        </Flex>
-      </Flex>
+  const isJson = parsed?.template.bodyKind === 'json'
+  const running = runState?.status === 'RUNNING'
+  const counts = runState ? countStatuses(runState.results) : undefined
+  const required = parsed ? parsed.fields.filter((f) => (rules[f.path] ?? 'REQUIRED') === 'REQUIRED').length : 0
 
-      {health.state === 'down' && <Alert type="error" showIcon title={t('health.unreachable')} description={health.message} />}
-
-      <Card title={t('prepare.card')}>
+  const sections: CollapseProps['items'] = [
+    {
+      key: 'token',
+      label: <SectionLabel title={t('prepare.card')} summary={steps.length > 0 ? t('summary.tokenSteps', { n: steps.length }) : t('summary.tokenNone')} />,
+      children: (
         <PrepareSteps
           steps={steps}
           onAdd={addStep}
@@ -305,98 +298,176 @@ export default function Workspace() {
           tryError={tryError}
           results={stepResults}
         />
-      </Card>
-
-      <Card
-        title={t('curl.card')}
-        extra={
-          <>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="application/json,.json"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                e.target.value = ''
-                if (f) void importConfig(f)
-              }}
-            />
-            <Button size="small" onClick={() => fileInput.current?.click()}>
-              {t('config.import')}
-            </Button>
-          </>
-        }
-      >
-        <CurlInput value={curl} onChange={setCurl} onAnalyze={analyze} loading={analyzing} error={parseError} />
-      </Card>
-
-      {parsed && (
-        <>
-          <Card title={t('request.card')}>
-            <RequestSummary
-              template={parsed.template}
-              warnings={parsed.warnings}
-              injectToken={tokenInjected}
-              knownVars={knownVars}
-            />
-          </Card>
-          {parsed.template.bodyKind === 'json' && (
-            <Card title={t('fields.card')}>
+      ),
+    },
+    {
+      key: 'curl',
+      label: <SectionLabel title={t('curl.card')} summary={parsed ? `${parsed.template.method} ${parsed.template.url}` : t('summary.curlEmpty')} />,
+      children: <CurlInput value={curl} onChange={setCurl} onAnalyze={analyze} loading={analyzing} error={parseError} />,
+    },
+    ...(parsed
+      ? [
+          {
+            key: 'request',
+            label: (
+              <SectionLabel
+                title={t('request.card')}
+                summary={[
+                  t(`body.${parsed.template.bodyKind}`),
+                  `${parsed.template.headers.length} header`,
+                  ...(parsed.warnings.length > 0 ? [t('request.warnings', { n: parsed.warnings.length })] : []),
+                ].join(' · ')}
+              />
+            ),
+            children: <RequestSummary template={parsed.template} warnings={parsed.warnings} injectToken={tokenInjected} knownVars={knownVars} />,
+          },
+        ]
+      : []),
+    ...(parsed && isJson
+      ? [
+          {
+            key: 'fields',
+            label: <SectionLabel title={t('fields.card')} summary={t('summary.fields', { n: parsed.fields.length, required })} />,
+            children: (
               <FieldRuleTable
                 fields={parsed.fields}
                 rules={rules}
                 onRuleChange={(path, rule) => setRules((prev) => ({ ...prev, [path]: rule }))}
                 onSetAll={(rule) => setRules(Object.fromEntries(parsed.fields.map((f) => [f.path, rule])))}
               />
-            </Card>
-          )}
-          {parsed.template.bodyKind === 'json' && (
-            <Card
-              title={t('cases.card')}
-              extra={
-                <Button size="small" onClick={() => downloadConfig(currentConfig())}>
-                  {t('config.export')}
+            ),
+          },
+        ]
+      : []),
+  ]
+
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      <Layout.Header style={{ position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <Flex align="center" gap={10} style={{ minWidth: 0 }}>
+          <span
+            style={{ width: 28, height: 28, lineHeight: '28px', textAlign: 'center', borderRadius: 7, background: '#4f46e5', color: '#fff', fontWeight: 700, fontSize: 12 }}
+          >
+            AC
+          </span>
+          <Typography.Text strong style={{ color: '#fff', fontSize: 16, whiteSpace: 'nowrap' }}>
+            {t('app.title')}
+          </Typography.Text>
+          {screens.lg && <Typography.Text style={{ color: '#9ca3af', whiteSpace: 'nowrap' }}>{t('app.tagline')}</Typography.Text>}
+        </Flex>
+        <ConfigProvider theme={{ algorithm: antdTheme.darkAlgorithm, token: { colorPrimary: '#6366f1' } }}>
+          <Flex align="center" gap={8} style={{ marginInlineStart: 'auto' }}>
+            {counts && screens.lg && (
+              <Flex gap={4} wrap>
+                {FINISHED.filter((s) => counts[s] > 0).map((s) => (
+                  <Tag key={s} color={STATUS_COLOR[s]} style={{ marginInlineEnd: 0 }}>
+                    {s} {counts[s]}
+                  </Tag>
+                ))}
+              </Flex>
+            )}
+            {running ? (
+              <Button danger type="primary" onClick={() => void cancel()} loading={cancelling}>
+                {t('results.cancel')}
+              </Button>
+            ) : (
+              <Tooltip title={parsed && !stepsReady ? t('run.notReady') : undefined}>
+                <Button type="primary" onClick={() => void run()} loading={starting} disabled={!isJson || rows.length === 0 || !stepsReady}>
+                  {runState ? t('results.runAgain') : t('run.button')}
                 </Button>
+              </Tooltip>
+            )}
+            <HealthTag health={health} />
+          </Flex>
+        </ConfigProvider>
+        <Segmented<Lang>
+          size="small"
+          aria-label={t('lang.switch')}
+          value={lang}
+          onChange={setLang}
+          options={[
+            { label: 'VI', value: 'vi' },
+            { label: 'EN', value: 'en' },
+          ]}
+        />
+      </Layout.Header>
+
+      <Layout.Content style={{ padding: 20, maxWidth: 1760, width: '100%', margin: '0 auto' }}>
+        {health.state === 'down' && <Alert style={{ marginBottom: 16 }} type="error" showIcon title={t('health.unreachable')} description={health.message} />}
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            e.target.value = ''
+            if (f) void importConfig(f)
+          }}
+        />
+        <Row gutter={[20, 20]} align="top">
+          <Col xs={24} xl={10} xxl={8} style={screens.xl ? { position: 'sticky', top: 76 } : undefined}>
+            <Card
+              title={t('layout.config')}
+              styles={{ body: { padding: 0, ...(screens.xl && { maxHeight: 'calc(100vh - 150px)', overflow: 'auto' }) } }}
+              extra={
+                <Flex gap={8}>
+                  <Button size="small" onClick={() => fileInput.current?.click()}>
+                    {t('config.import')}
+                  </Button>
+                  <Button size="small" disabled={!isJson} onClick={() => downloadConfig(currentConfig())}>
+                    {t('config.export')}
+                  </Button>
+                </Flex>
               }
             >
-              <Flex vertical gap={16}>
-                <CaseTable
-                  fields={parsed.fields}
-                  rules={rules}
-                  rows={rows}
-                  onChange={setRows}
-                  onAdd={addRow}
-                  onDuplicate={duplicateRow}
-                />
-                <RunOptions value={options} onChange={setOptions} sequential={steps.length > 0} />
-                <Flex gap={12} align="center">
-                  <Button
-                    type="primary"
-                    onClick={() => void run()}
-                    loading={starting}
-                    disabled={rows.length === 0 || !stepsReady || runState?.status === 'RUNNING'}
-                  >
-                    {t('run.button')}
-                  </Button>
-                  {!stepsReady && <Typography.Text type="secondary">{t('prepare.needAnalyze')}</Typography.Text>}
-                </Flex>
-              </Flex>
+              <Collapse bordered={false} activeKey={openSections} onChange={(keys) => setOpenSections(keys as string[])} items={sections} />
             </Card>
-          )}
-          {runState && (
-            <Card title={t('results.card')}>
-              <ResultView
-                status={runState.status}
-                results={runState.results}
-                onCancel={() => void cancel()}
-                onRunAgain={() => void run()}
-                cancelling={cancelling}
-              />
-            </Card>
-          )}
-        </>
-      )}
+          </Col>
+
+          <Col xs={24} xl={14} xxl={16}>
+            <Flex vertical gap={20}>
+              {!parsed && (
+                <Card>
+                  <Empty description={t('layout.empty')} />
+                </Card>
+              )}
+              {parsed && !isJson && <Alert type="warning" showIcon title={t('request.unsupported')} description={t('request.unsupportedDesc')} />}
+              {parsed && isJson && (
+                <Card title={t('cases.card')}>
+                  <Flex vertical gap={16}>
+                    <CaseTable fields={parsed.fields} rules={rules} rows={rows} onChange={setRows} onAdd={addRow} onDuplicate={duplicateRow} />
+                    <RunOptions value={options} onChange={setOptions} sequential={steps.length > 0} />
+                  </Flex>
+                </Card>
+              )}
+              {parsed && isJson && (
+                <Card title={t('results.card')}>
+                  {runState ? (
+                    <ResultView status={runState.status} results={runState.results} />
+                  ) : (
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('results.empty')} />
+                  )}
+                </Card>
+              )}
+            </Flex>
+          </Col>
+        </Row>
+      </Layout.Content>
+    </Layout>
+  )
+}
+
+// SectionLabel is a collapsible section's title with a one-line summary, readable while it is closed.
+function SectionLabel({ title, summary }: { title: string; summary: string }) {
+  return (
+    <Flex justify="space-between" align="center" gap={12} style={{ minWidth: 0 }}>
+      <Typography.Text strong style={{ whiteSpace: 'nowrap' }}>
+        {title}
+      </Typography.Text>
+      <Typography.Text type="secondary" ellipsis style={{ fontSize: 12, maxWidth: '65%' }}>
+        {summary}
+      </Typography.Text>
     </Flex>
   )
 }

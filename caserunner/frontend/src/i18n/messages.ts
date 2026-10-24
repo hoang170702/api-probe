@@ -5,6 +5,15 @@ export type Lang = 'en' | 'vi'
 
 const en = {
   'app.title': 'API Case Runner',
+  'app.tagline': 'Run one API with many test cases',
+  'layout.config': 'Configuration',
+  'layout.empty': 'Paste a curl on the left and click Analyze to write test cases.',
+  'summary.tokenNone': 'Not used',
+  'summary.tokenSteps': '{n} step(s)',
+  'summary.curlEmpty': 'Not analyzed yet',
+  'summary.fields': '{n} fields · {required} Required',
+  'results.empty': 'Click Run to see the results here.',
+  'run.notReady': 'Analyze every token step first.',
   'lang.switch': 'Language',
   'health.checking': 'Checking backend…',
   'health.ok': 'BE OK · {version}',
@@ -126,6 +135,15 @@ export type MessageKey = keyof typeof en
 
 const vi: Record<MessageKey, string> = {
   'app.title': 'API Case Runner',
+  'app.tagline': 'Chạy một API với nhiều test case',
+  'layout.config': 'Cấu hình',
+  'layout.empty': 'Dán curl ở cột trái rồi bấm Analyze để nhập test case.',
+  'summary.tokenNone': 'Không dùng',
+  'summary.tokenSteps': '{n} bước',
+  'summary.curlEmpty': 'Chưa phân tích',
+  'summary.fields': '{n} field · {required} Required',
+  'results.empty': 'Bấm Chạy để xem kết quả ở đây.',
+  'run.notReady': 'Hãy Analyze tất cả các bước lấy token trước.',
   'lang.switch': 'Ngôn ngữ',
   'health.checking': 'Đang kiểm tra backend…',
   'health.ok': 'BE OK · {version}',

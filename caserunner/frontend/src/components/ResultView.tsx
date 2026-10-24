@@ -1,77 +1,46 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Alert, Button, Descriptions, Drawer, Flex, Progress, Segmented, Table, Tag, Typography } from 'antd'
+import { Alert, Descriptions, Drawer, Flex, Progress, Segmented, Table, Tag, Typography } from 'antd'
 import type { CaseResult, CaseStatus, RunStatus } from '../types/api'
 import { useI18n } from '../i18n/context'
+import { countStatuses, FINISHED, STATUS_COLOR } from '../lib/cases'
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
-
-const STATUS_COLOR: Record<CaseStatus, string> = {
-  PENDING: 'default',
-  RUNNING: 'processing',
-  SUCCESS: 'success',
-  FAILED: 'error',
-  EXCEPTION: 'orange',
-  BLOCKED: 'default',
-  CANCELLED: 'default',
-}
-
-const FINISHED: CaseStatus[] = ['SUCCESS', 'FAILED', 'EXCEPTION', 'BLOCKED', 'CANCELLED']
 
 interface Props {
   status: RunStatus
   results: CaseResult[]
-  onCancel: () => void
-  onRunAgain: () => void
-  cancelling: boolean
 }
 
-/** The results panel (BRD-001 §16): live summary, table, filter and a detail drawer. */
-export default function ResultView({ status, results, onCancel, onRunAgain, cancelling }: Props) {
+/** The results panel (BRD-001 §16): progress, filter, table and a detail drawer. Run and Cancel live in the top bar. */
+export default function ResultView({ status, results }: Props) {
   const { t } = useI18n()
   const [filter, setFilter] = useState<'ALL' | CaseStatus>('ALL')
   const [open, setOpen] = useState<CaseResult>()
 
-  const counts = useMemo(() => {
-    const c: Record<CaseStatus, number> = { PENDING: 0, RUNNING: 0, SUCCESS: 0, FAILED: 0, EXCEPTION: 0, BLOCKED: 0, CANCELLED: 0 }
-    for (const r of results) c[r.status]++
-    return c
-  }, [results])
+  const counts = useMemo(() => countStatuses(results), [results])
   const finished = FINISHED.reduce((n, s) => n + counts[s], 0)
   const shown = filter === 'ALL' ? results : results.filter((r) => r.status === filter)
 
   return (
     <Flex vertical gap={16}>
-      <Flex gap={8} align="center" wrap>
-        <Tag>{t('results.total', { n: results.length })}</Tag>
-        {(['SUCCESS', 'FAILED', 'EXCEPTION', 'BLOCKED', 'CANCELLED'] as CaseStatus[]).map((s) => (
-          <Tag key={s} color={STATUS_COLOR[s]}>
-            {s} {counts[s]}
-          </Tag>
-        ))}
-        <Flex gap={8} style={{ marginInlineStart: 'auto' }}>
-          {status === 'RUNNING' ? (
-            <Button danger onClick={onCancel} loading={cancelling}>
-              {t('results.cancel')}
-            </Button>
-          ) : (
-            <Button onClick={onRunAgain}>{t('results.runAgain')}</Button>
-          )}
-        </Flex>
-      </Flex>
       <Progress
         percent={results.length ? Math.round((finished / results.length) * 100) : 0}
+        format={() => `${finished}/${results.length}`}
         status={status === 'RUNNING' ? 'active' : status === 'CANCELLED' ? 'exception' : 'success'}
       />
-      <Alert type="info" showIcon title={t('results.ttl')} />
-
-      <Segmented<'ALL' | CaseStatus>
-        value={filter}
-        onChange={setFilter}
-        options={[
-          { label: t('results.all'), value: 'ALL' },
-          ...FINISHED.map((s) => ({ label: `${s} (${counts[s]})`, value: s })),
-        ]}
-      />
+      <Flex justify="space-between" align="center" wrap gap={8}>
+        <Segmented<'ALL' | CaseStatus>
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { label: `${t('results.all')} (${results.length})`, value: 'ALL' },
+            ...FINISHED.map((s) => ({ label: `${s} (${counts[s]})`, value: s })),
+          ]}
+        />
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          {t('results.ttl')}
+        </Typography.Text>
+      </Flex>
       <Table<CaseResult>
         size="small"
         rowKey="caseIndex"
@@ -81,11 +50,11 @@ export default function ResultView({ status, results, onCancel, onRunAgain, canc
         scroll={{ x: 'max-content' }}
         columns={[
           { title: '#', dataIndex: 'caseNo', width: 56, render: (n: number) => `${n}.` },
-          { title: t('results.name'), dataIndex: 'name', width: 180 },
+          { title: t('results.name'), dataIndex: 'name', width: 140 },
           {
             title: t('cases.expect'),
             dataIndex: 'expect',
-            width: 200,
+            width: 160,
             render: (v: string) => (
               <Typography.Text code style={{ fontSize: 12 }}>
                 {v}
@@ -109,7 +78,7 @@ export default function ResultView({ status, results, onCancel, onRunAgain, canc
             title: t('results.reason'),
             dataIndex: 'reason',
             render: (v: string) => (
-              <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 420 }}>
+              <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 360 }}>
                 {v}
               </Typography.Text>
             ),
