@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { cancelRun, startRun, watchRun } from '../api/runs'
-import { Alert, App, Button, Card, Col, Collapse, ConfigProvider, Empty, Flex, Grid, Layout, Row, Segmented, Tag, theme as antdTheme, Tooltip, Typography, type CollapseProps } from 'antd'
+import { Alert, App, Button, Card, Col, Collapse, ConfigProvider, Empty, Flex, Grid, Layout, Modal, Row, Segmented, Tag, theme as antdTheme, Tooltip, Typography, type CollapseProps } from 'antd'
 import { getHealth } from '../api/health'
 import { parseCurl } from '../api/parse'
 import { tryPrepare } from '../api/prepare'
@@ -58,6 +58,7 @@ export default function Workspace() {
   const [openSections, setOpenSections] = useState<string[]>(['curl'])
   const screens = Grid.useBreakpoint()
   const [configOpen, setConfigOpen] = useState(true)
+  const [casesOpen, setCasesOpen] = useState(false)
   useEffect(() => () => stopWatching.current?.(), [])
 
   useEffect(() => {
@@ -277,6 +278,8 @@ export default function Workspace() {
 
   const isJson = parsed?.template.bodyKind === 'json'
   const wide = screens.xl
+  const blockedRows = parsed ? rows.filter((r) => rowProblems(r, parsed.fields, rules).length > 0).length : 0
+  const canRun = isJson && rows.length > 0 && stepsReady
   const running = runState?.status === 'RUNNING'
   const counts = runState ? countStatuses(runState.results) : undefined
   const required = parsed ? parsed.fields.filter((f) => (rules[f.path] ?? 'REQUIRED') === 'REQUIRED').length : 0
@@ -374,7 +377,7 @@ export default function Workspace() {
               </Button>
             ) : (
               <Tooltip title={parsed && !stepsReady ? t('run.notReady') : undefined}>
-                <Button type="primary" onClick={() => void run()} loading={starting} disabled={!isJson || rows.length === 0 || !stepsReady}>
+                <Button type="primary" onClick={() => void run()} loading={starting} disabled={!canRun}>
                   {runState ? t('results.runAgain') : t('run.button')}
                 </Button>
               </Tooltip>
@@ -456,9 +459,18 @@ export default function Workspace() {
               )}
               {parsed && !isJson && <Alert type="warning" showIcon title={t('request.unsupported')} description={t('request.unsupportedDesc')} />}
               {parsed && isJson && (
-                <Card title={t('cases.card')}>
+                <Card
+                  title={t('cases.card')}
+                  extra={
+                    <Button type="primary" ghost onClick={() => setCasesOpen(true)}>
+                      {t('cases.open')}
+                    </Button>
+                  }
+                >
                   <Flex vertical gap={16}>
-                    <CaseTable fields={parsed.fields} rules={rules} rows={rows} onChange={setRows} onAdd={addRow} onDuplicate={duplicateRow} />
+                    <Typography.Text strong type={blockedRows > 0 ? 'danger' : undefined}>
+                      {t('cases.summary', { n: rows.length, blocked: blockedRows })}
+                    </Typography.Text>
                     <RunOptions value={options} onChange={setOptions} sequential={steps.length > 0} />
                   </Flex>
                 </Card>
@@ -475,6 +487,34 @@ export default function Workspace() {
             </Flex>
           </Col>
         </Row>
+        {parsed && isJson && (
+          <Modal
+            open={casesOpen}
+            onCancel={() => setCasesOpen(false)}
+            title={t('cases.card')}
+            width="calc(100vw - 64px)"
+            style={{ top: 24, maxWidth: 1800 }}
+            styles={{ body: { maxHeight: 'calc(100vh - 200px)', overflow: 'auto' } }}
+            footer={
+              <Flex justify="end" gap={8}>
+                <Button onClick={() => setCasesOpen(false)}>{t('cases.close')}</Button>
+                <Button
+                  type="primary"
+                  disabled={!canRun || running}
+                  loading={starting}
+                  onClick={() => {
+                    setCasesOpen(false)
+                    void run()
+                  }}
+                >
+                  {t('run.button')}
+                </Button>
+              </Flex>
+            }
+          >
+            <CaseTable fields={parsed.fields} rules={rules} rows={rows} onChange={setRows} onAdd={addRow} onDuplicate={duplicateRow} />
+          </Modal>
+        )}
       </Layout.Content>
     </Layout>
   )
