@@ -232,7 +232,7 @@ func TestRunJudgesEveryCase(t *testing.T) {
 			t.Errorf("case %d: %s (%s), want %s", i+1, r.Results[i].Status, r.Results[i].Reason, w)
 		}
 	}
-	if got := r.Results[1].Reason; got != `Found "ERR_AMOUNT_INVALID" in the body (HTTP 400)` {
+	if got := r.Results[1].Reason; got != `Found ERR_AMOUNT_INVALID in the body (HTTP 400)` {
 		t.Errorf("reason = %q", got)
 	}
 	if r.Results[3].Errors[0].Code != run.CodeRequiredMissing || r.Results[5].Errors[0].Code != run.CodeInvalidExpectation {

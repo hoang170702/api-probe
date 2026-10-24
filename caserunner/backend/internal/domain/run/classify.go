@@ -35,11 +35,12 @@ func Classify(expect string, status int, headers []curl.Header, body []byte) str
 // Judge sets the status and reason of a case that got a response.
 func Judge(res *CaseResult, headers []curl.Header, body []byte) {
 	res.FoundIn = Classify(res.Expect, res.HTTPStatus, headers, body)
+	// The code is shown as typed: Go quoting would turn "code":"00" into "\"code\":\"00\"".
 	if res.FoundIn != "" {
 		res.Status = Success
-		res.Reason = fmt.Sprintf("Found %q in the %s (HTTP %d)", res.Expect, res.FoundIn, res.HTTPStatus)
+		res.Reason = fmt.Sprintf("Found %s in the %s (HTTP %d)", res.Expect, res.FoundIn, res.HTTPStatus)
 		return
 	}
 	res.Status = Failed
-	res.Reason = fmt.Sprintf("%q not found in the response (HTTP %d)", res.Expect, res.HTTPStatus)
+	res.Reason = fmt.Sprintf("%s not found in the response (HTTP %d)", res.Expect, res.HTTPStatus)
 }

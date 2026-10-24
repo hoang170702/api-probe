@@ -40,12 +40,17 @@ func TestClassify(t *testing.T) {
 func TestJudge(t *testing.T) {
 	ok := CaseResult{Expect: "ERR_X", HTTPStatus: 400}
 	Judge(&ok, nil, []byte(`{"code":"ERR_X"}`))
-	if ok.Status != Success || ok.FoundIn != InBody || ok.Reason != `Found "ERR_X" in the body (HTTP 400)` {
+	if ok.Status != Success || ok.FoundIn != InBody || ok.Reason != `Found ERR_X in the body (HTTP 400)` {
 		t.Errorf("found: %+v", ok)
+	}
+	quoted := CaseResult{Expect: `"code":"00"`, HTTPStatus: 200}
+	Judge(&quoted, nil, []byte(`{"code":"00"}`))
+	if quoted.Reason != `Found "code":"00" in the body (HTTP 200)` {
+		t.Errorf("quoted expect reason = %q", quoted.Reason)
 	}
 	miss := CaseResult{Expect: "00", HTTPStatus: 500}
 	Judge(&miss, nil, []byte(`{"code":"99"}`))
-	if miss.Status != Failed || miss.FoundIn != "" || miss.Reason != `"00" not found in the response (HTTP 500)` {
+	if miss.Status != Failed || miss.FoundIn != "" || miss.Reason != `00 not found in the response (HTTP 500)` {
 		t.Errorf("not found: %+v", miss)
 	}
 }
