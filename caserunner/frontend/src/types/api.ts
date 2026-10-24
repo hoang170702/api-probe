@@ -74,3 +74,16 @@ export interface TryPrepareResponse {
   steps: StepResult[]
   vars: Record<string, string>
 }
+
+/** One row of the case table (BRD-001 §8): values are typed text, keyed by field path. */
+export interface CaseRow {
+  id: number
+  name: string
+  values: Record<string, string>
+  expect: string
+}
+
+export interface RunOptionsValue {
+  concurrency: number
+  timeoutSec: number
+}
