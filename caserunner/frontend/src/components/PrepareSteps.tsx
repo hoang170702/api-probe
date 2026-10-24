@@ -150,12 +150,36 @@ function CaptureEditor({ captures, onChange }: { captures: Capture[]; onChange: 
           </Button>
         </Flex>
       ))}
+      <PathHelp />
       <div>
         <Button size="small" type="dashed" onClick={() => onChange([...captures, { var: '', path: '' }])}>
           + {t('prepare.addCapture')}
         </Button>
       </div>
     </Flex>
+  )
+}
+
+// Explains the path syntax with a concrete response, so testers know what to type.
+function PathHelp() {
+  const { t } = useI18n()
+  const code = (s: string) => (
+    <Typography.Text code style={{ fontSize: 12 }}>
+      {s}
+    </Typography.Text>
+  )
+  // The example sentence has three slots, filled with code-formatted values.
+  const parts = t('prepare.pathExample').split(/(\{json\}|\{path\}|\{arrayPath\})/)
+  const slots: Record<string, string> = {
+    '{json}': '{"data":{"accessToken":"eyJ…","items":[{"id":"A1"}]}}',
+    '{path}': 'data.accessToken',
+    '{arrayPath}': 'data.items[0].id',
+  }
+  return (
+    <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+      {t('prepare.pathHelp')}{' '}
+      {parts.map((p, i) => (slots[p] ? <span key={i}>{code(slots[p])}</span> : <span key={i}>{p}</span>))}
+    </Typography.Text>
   )
 }
 

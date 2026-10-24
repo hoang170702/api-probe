@@ -6,23 +6,46 @@ Bản tiếng Anh: [user-guide.md](user-guide.md).
 
 ## 1. Khởi động API Case Runner
 
-API Case Runner là một chương trình duy nhất, phục vụ cả trang web lẫn API của nó.
+API Case Runner là **một chương trình duy nhất**, phục vụ cả trang web lẫn API của nó; không phải bật FE và BE riêng.
 
-```sh
-cd caserunner
-scripts/build.sh          # chạy một lần, hoặc sau khi kéo code mới về
-backend/bin/caserunner
+**Lần đầu (hoặc sau khi kéo code mới về): build và chạy bằng một lệnh.** Trong thư mục `caserunner` của repo:
+
+| Windows (PowerShell) | Linux / macOS / WSL |
+|---|---|
+| `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Run` | `scripts/build.sh --run` |
+
+Cửa sổ sẽ hiện lần lượt từng bước:
+
+```text
+==> frontend                      build trang web (lần đầu tải thêm các package của nó)
+==> embed                         đưa trang web vào trong chương trình
+==> backend                       biên dịch ra file chương trình
+Built …/backend/bin/caserunner    file này lần sau chạy thẳng được
+==> run (Ctrl+C to stop)          tool đang khởi động
+… caserunner listening url=http://127.0.0.1:8080
 ```
 
-Sau đó mở **http://127.0.0.1:8080** trên trình duyệt. Tag ở góc trên bên phải hiện **BE OK** kèm phiên bản khi tool đã sẵn sàng. Nút **VI / EN** bên cạnh đổi ngôn ngữ của trang; lựa chọn được ghi nhớ.
+Nếu API Case Runner đang chạy sẵn, script sẽ tắt nó trước (`==> stopping the running API Case Runner (PID …)`) rồi mới bật bản vừa build, nên không cần tự tắt trước khi build lại. Script không bao giờ tắt chương trình khác: nếu cổng đang bị chương trình khác dùng, nó báo tên chương trình đó và dừng lại.
 
-| Muốn | Làm |
+Khi thấy dòng `listening`, mở **http://127.0.0.1:8080** trên trình duyệt. Giữ cửa sổ đó mở trong lúc dùng tool; nhấn **Ctrl+C** trong cửa sổ để dừng. Nếu script dừng ngay từ đầu với một dòng `error:`, nó sẽ nêu thứ còn thiếu (Go hoặc Node.js) và in sẵn lệnh để cài.
+
+**Những lần sau: chỉ cần chạy file đã build**; khởi động trong một giây và không cần Go hay Node.js:
+
+| Windows (PowerShell) | Linux / macOS / WSL |
 |---|---|
-| Chạy tiếp sau khi đóng terminal | `nohup backend/bin/caserunner > caserunner.log 2>&1 &`, khi cần dừng thì `kill <pid>` |
-| Dùng cổng khác, hoặc cho đồng nghiệp mở | `CASERUNNER_BIND=0.0.0.0:9090 backend/bin/caserunner` (mặc định chỉ máy của bạn truy cập được) |
-| Dừng | `Ctrl+C` trong terminal đang chạy nó |
+| `.\backend\bin\caserunner.exe`, hoặc nhấp đúp vào file | `backend/bin/caserunner` |
 
-Build cần Go 1.27+ và Node.js 20.19+; nếu developer đưa sẵn file `caserunner` đã build thì chỉ cần chạy nó.
+Nếu developer đưa sẵn chương trình đã build (`caserunner.exe` trên Windows) thì bạn chỉ cần bước cuối này.
+
+Tag ở góc trên bên phải trang hiện **BE OK** kèm phiên bản khi tool đã sẵn sàng. Nút **VI / EN** bên cạnh đổi ngôn ngữ của trang; lựa chọn được ghi nhớ.
+
+| Muốn | Windows (PowerShell) | Linux / macOS / WSL |
+|---|---|---|
+| Dừng | `Ctrl+C` trong cửa sổ đang chạy, hoặc đóng cửa sổ | `Ctrl+C` trong terminal đang chạy |
+| Chạy nền | `Start-Process -WindowStyle Hidden .\backend\bin\caserunner.exe`, dừng bằng `Stop-Process -Name caserunner` | `nohup backend/bin/caserunner > caserunner.log 2>&1 &`, dừng bằng `kill <pid>` |
+| Dùng cổng khác, hoặc cho đồng nghiệp mở (mặc định chỉ máy của bạn truy cập được) | `$env:CASERUNNER_BIND = '0.0.0.0:9090'; .\backend\bin\caserunner.exe` | `CASERUNNER_BIND=0.0.0.0:9090 backend/bin/caserunner` |
+
+Build cần Go 1.27+ và Node.js 20.19+ (xem [README](../README.md#quick-start) để biết cách cài).
 
 ## 2. Copy request dưới dạng curl
 
@@ -74,7 +97,7 @@ Dán lệnh vào **1. Curl** rồi bấm **Analyze** (hoặc nhấn **Ctrl+Enter
 Hầu hết API ngoài máy của developer đều cần token, thường lấy từ một API login. Thay vì tự copy token (và copy lại mỗi khi hết hạn), hãy để tool tự lấy:
 
 1. Trong **0. Lấy token (tuỳ chọn)**, bấm **Thêm bước lấy token** rồi dán curl của API login (hoặc API cấp token), copy giống như ở mục 2. Bấm **Analyze**.
-2. Ở **Giá trị cần bắt từ response**, biến đầu tiên đã có tên `token` và **Path** để trống: khi đó tool tự tìm token, bằng cách tìm field tên `access_token`, `accessToken`, `token`, `id_token`, `jwt`, … ở mọi tầng. Nếu API của bạn để token ở chỗ khác, gõ path vào, ví dụ `data.auth.value`.
+2. Ở **Giá trị cần bắt từ response**, biến đầu tiên đã có tên `token` và ô **Lấy từ field** để trống: khi đó tool tự tìm token, bằng cách tìm field tên `access_token`, `accessToken`, `token`, `id_token`, `jwt`, … ở mọi tầng. Nếu API của bạn để token ở chỗ khác, gõ đường dẫn tới field đó, mỗi tầng cách nhau bằng dấu chấm: với response `{"data":{"auth":{"value":"eyJ…"}}}` thì ghi `data.auth.value`; field nằm trong mảng thì thêm vị trí, ví dụ `data.items[0].id`.
 3. Bấm **Chạy thử**. Mỗi bước hiện **Thành công** hoặc lý do lỗi, mã HTTP, giá trị bắt được (bị che; bật **Hiện giá trị nhạy cảm** để xem) và nơi tìm thấy, ví dụ *lấy từ data.accessToken*. Mở **Response body** để xem toàn bộ response.
 4. Giữ công tắc **Gắn Authorization: Bearer {{token}} vào curl chính** ở trạng thái bật: khi chạy case, curl chính được gắn `Authorization: Bearer <token>` mới, thay cho cái bạn đã dán. Ở **2. Request**, dòng `Authorization` cũ bị gạch để cho biết điều đó.
 
@@ -135,5 +158,9 @@ Các cảnh báo thường gặp, không cần làm gì:
 | Tag đỏ **BE down** và banner *Backend unreachable* | Chương trình API Case Runner chưa chạy hoặc đã dừng; chạy lại rồi tải lại trang. |
 | `scripts/build.sh` dừng với *the Windows Node.js is on PATH* hoặc *node was not found*, hoặc in ra `UNC paths are not supported` | Trong WSL, việc build cần Node.js cài bên trong Linux, không phải bản của Windows: cài bằng nvm (`nvm install 22`) như script hướng dẫn, mở terminal mới rồi build lại. |
 | Trang báo *The frontend is not built into this binary* | Chương trình được build mà không có trang web; build lại bằng `scripts/build.sh`. |
-| Báo `address already in use` khi khởi động | Chương trình khác đang dùng cổng 8080; chạy với `CASERUNNER_BIND=127.0.0.1:9090` và mở cổng đó. |
+| Báo `address already in use` (Linux) hoặc *Only one usage of each socket address is normally permitted* (Windows) khi khởi động | Chương trình khác đang dùng cổng 8080, thường là một API Case Runner đang chạy sẵn; dừng nó, hoặc chạy với cổng khác (`CASERUNNER_BIND=127.0.0.1:9090`) rồi mở cổng đó. |
+| *port 8080 is used by … (PID …), not API Case Runner* khi build với `--run` / `-Run` | Chương trình khác đang dùng cổng đó; tắt nó, hoặc chọn cổng khác bằng `CASERUNNER_BIND` (xem mục 1). |
+| *API Case Runner is running (PID …), so the build cannot replace caserunner.exe* (Windows) | Build với `-Run` để khởi động lại, hoặc tắt nó trước. |
+| PowerShell báo *running scripts is disabled on this system* | Chạy build bằng `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1`. |
+| `build.ps1` dừng với *Node.js v… is too old* hoặc *was not found on PATH* | Cài thứ nó nêu bằng lệnh `winget` nó in ra, mở cửa sổ PowerShell mới rồi build lại. |
 | Service dừng ngay kèm thông báo nêu tên một biến `CASERUNNER_` | Biến môi trường đó có giá trị sai; sửa lại hoặc bỏ nó đi ([BRD-001 §20](brd/BRD-001.vi.md#20-cấu-hình-env)). |

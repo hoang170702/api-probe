@@ -6,23 +6,46 @@ Vietnamese version: [user-guide.vi.md](user-guide.vi.md).
 
 ## 1. Start API Case Runner
 
-API Case Runner is one program that serves both the web page and its API.
+API Case Runner is **one program** that serves both the web page and its API; there is no separate frontend or backend to start.
 
-```sh
-cd caserunner
-scripts/build.sh          # once, or after pulling new code
-backend/bin/caserunner
+**First time (or after pulling new code): build and start in one command.** In the `caserunner` folder of the repository:
+
+| Windows (PowerShell) | Linux / macOS / WSL |
+|---|---|
+| `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Run` | `scripts/build.sh --run` |
+
+The window shows the steps as they happen:
+
+```text
+==> frontend                      the web page is built (the first time also downloads its packages)
+==> embed                         the page is put inside the program
+==> backend                       the program file is compiled
+Built …/backend/bin/caserunner    the file you can run directly next time
+==> run (Ctrl+C to stop)          the tool is starting
+… caserunner listening url=http://127.0.0.1:8080
 ```
 
-Then open **http://127.0.0.1:8080** in a browser. The tag at the top right shows **BE OK** and the version when the tool is ready. The **VI / EN** switch next to it changes the language of the page; your choice is remembered.
+If API Case Runner is already running, the script first stops it (`==> stopping the running API Case Runner (PID …)`) and then starts the new build, so you never need to stop it yourself before rebuilding. It never stops another program: if something else uses the port, it says which program and stops.
 
-| Want to | Do |
+When `listening` appears, open **http://127.0.0.1:8080** in a browser. Leave the window open while you use the tool; **Ctrl+C** in it stops the tool. If the script stops at the start with an `error:` line, it names what is missing (Go or Node.js) and prints the command that installs it.
+
+**Next times: just run the built file**; it starts in a second and needs neither Go nor Node.js:
+
+| Windows (PowerShell) | Linux / macOS / WSL |
 |---|---|
-| Keep it running after closing the terminal | `nohup backend/bin/caserunner > caserunner.log 2>&1 &` and stop it later with `kill <pid>` |
-| Use another port, or let teammates open it | `CASERUNNER_BIND=0.0.0.0:9090 backend/bin/caserunner` (by default only your own machine can reach it) |
-| Stop it | `Ctrl+C` in its terminal |
+| `.\backend\bin\caserunner.exe`, or double-click the file | `backend/bin/caserunner` |
 
-Building needs Go 1.27+ and Node.js 20.19+; if a developer hands you a ready-built `caserunner` binary, just run it.
+If a developer hands you a ready-built program (`caserunner.exe` on Windows), you only need this last step.
+
+The tag at the top right of the page shows **BE OK** and the version when the tool is ready. The **VI / EN** switch next to it changes the language of the page; your choice is remembered.
+
+| Want to | Windows (PowerShell) | Linux / macOS / WSL |
+|---|---|---|
+| Stop it | `Ctrl+C` in its window, or close the window | `Ctrl+C` in its terminal |
+| Keep it running in the background | `Start-Process -WindowStyle Hidden .\backend\bin\caserunner.exe`, stop with `Stop-Process -Name caserunner` | `nohup backend/bin/caserunner > caserunner.log 2>&1 &`, stop with `kill <pid>` |
+| Use another port, or let teammates open it (by default only your own machine can reach it) | `$env:CASERUNNER_BIND = '0.0.0.0:9090'; .\backend\bin\caserunner.exe` | `CASERUNNER_BIND=0.0.0.0:9090 backend/bin/caserunner` |
+
+Building needs Go 1.27+ and Node.js 20.19+ (see the [README](../README.md#quick-start) for installing them).
 
 ## 2. Copy the request as curl
 
@@ -74,7 +97,7 @@ What the rule will mean when you run cases:
 Most APIs outside a developer's laptop need a token, usually from a login API. Instead of copying a token by hand (and again when it expires), let the tool fetch it:
 
 1. In **0. Token (optional)**, click **Add token step** and paste the curl of the login (or token) API, copied the same way as in section 2. Click **Analyze**.
-2. Under **Values to capture from the response**, the first variable is already named `token` with an empty **Path**: the tool then finds the token by itself, looking for a field named `access_token`, `accessToken`, `token`, `id_token`, `jwt`, … at any depth. If your API puts it elsewhere, type the path, e.g. `data.auth.value`.
+2. Under **Values to capture from the response**, the first variable is already named `token` with an empty **Take from field**: the tool then finds the token by itself, looking for a field named `access_token`, `accessToken`, `token`, `id_token`, `jwt`, … at any depth. If your API puts it elsewhere, type the path of that field, each level separated by a dot: for a response `{"data":{"auth":{"value":"eyJ…"}}}` write `data.auth.value`; inside an array add the position, e.g. `data.items[0].id`.
 3. Click **Try steps**. Each step shows **OK** or why it failed, the HTTP code, the value it captured (masked; turn on **Show sensitive values** to see it) and where it was found, e.g. *from data.accessToken*. Open **Response body** to see the full answer.
 4. Keep **Put Authorization: Bearer {{token}} on the main curl** on: when cases run, the main curl gets a fresh `Authorization: Bearer <token>`, replacing the one you pasted. In **2. Request** the old `Authorization` row is struck through to show it.
 
@@ -135,5 +158,9 @@ Common warnings that need no action:
 | Red **BE down** tag and *Backend unreachable* banner | The API Case Runner program is not running or was stopped; start it again and reload the page. |
 | `scripts/build.sh` stops with *the Windows Node.js is on PATH* or *node was not found*, or prints `UNC paths are not supported` | Under WSL the build needs Node.js installed inside Linux, not the Windows one: install it with nvm (`nvm install 22`) as the script explains, open a new terminal, and build again. |
 | The page says *The frontend is not built into this binary* | The program was built without the web page; build it with `scripts/build.sh`. |
-| `address already in use` when starting | Another program uses port 8080; start with `CASERUNNER_BIND=127.0.0.1:9090` and open that port. |
+| `address already in use` (Linux) or *Only one usage of each socket address is normally permitted* (Windows) when starting | Another program uses port 8080, often an API Case Runner that is already running; stop it, or start with another port (`CASERUNNER_BIND=127.0.0.1:9090`) and open that port. |
+| *port 8080 is used by … (PID …), not API Case Runner* when building with `--run` / `-Run` | Another program uses the port; stop it, or pick another port with `CASERUNNER_BIND` (see section 1). |
+| *API Case Runner is running (PID …), so the build cannot replace caserunner.exe* (Windows) | Build with `-Run` to restart it, or stop it first. |
+| PowerShell: *running scripts is disabled on this system* | Run the build as `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1`. |
+| `build.ps1` stops with *Node.js v… is too old* or *was not found on PATH* | Install what it names with the `winget` command it prints, open a new PowerShell window, and build again. |
 | The service stops right away with a message naming a `CASERUNNER_` variable | That environment variable has an invalid value; fix or unset it ([BRD-001 §20](brd/BRD-001.md#20-configuration-env)). |

@@ -21,9 +21,12 @@ The frontend is embedded in the Go binary, so one executable serves the whole to
 
 ```sh
 cd caserunner
-scripts/build.sh            # npm build + go build → backend/bin/caserunner
-backend/bin/caserunner        # then open http://127.0.0.1:8080
+scripts/build.sh --run      # npm build + go build → backend/bin/caserunner, then (re)start it
+backend/bin/caserunner      # later runs: start the built file directly
+# then open http://127.0.0.1:8080
 ```
+
+On Windows use `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1` (add `-Run` to start it), which writes `backend\bin\caserunner.exe`; `GOOS=windows GOARCH=amd64 scripts/build.sh` cross-builds the same `.exe` from Linux/WSL. Full per-OS instructions: [root README](../README.md#quick-start).
 
 In the background: `nohup backend/bin/caserunner > caserunner.log 2>&1 &` (stop it with `kill <pid>`). A binary built with plain `go build` (without the script) serves the API and explains on `/` that the frontend is not built.
 
