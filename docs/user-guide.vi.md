@@ -41,7 +41,7 @@ Trang có một thanh trên màu tối và hai cột:
 
 - **Thanh trên**: nút **Chạy** (thành **Huỷ run** khi đang chạy, và **Chạy lại** sau đó), số case theo từng trạng thái, tag **BE OK** kèm phiên bản khi tool đã sẵn sàng, và nút **VI / EN** để đổi ngôn ngữ (lựa chọn được ghi nhớ).
 - **Cột trái, Cấu hình**: các bước mô tả request, **0. Lấy token**, **1. Curl**, **2. Request** và **3. Field rules**. Bấm vào tiêu đề để mở hoặc thu gọn; bước đang thu gọn hiện một dòng tóm tắt bên phải, ví dụ *POST https://…* hay *5 field · 4 Required*. **Nhập cấu hình** và **Xuất cấu hình** nằm ở đầu cột này. Nút **«** thu cột thành một dải hẹp để bảng case và kết quả dùng hết bề ngang; bấm vào dải đó để mở lại.
-- **Cột phải**: **4. Test case** và bên dưới là **5. Kết quả**.
+- **Cột phải**: **4. Test case** (một thẻ tóm tắt; bảng case mở trong popup) và bên dưới là **5. Kết quả**.
 
 Khi cửa sổ hẹp (dưới 1200 pixel), cột phải chuyển xuống dưới cột trái.
 
@@ -125,7 +125,7 @@ Khi chạy case, các bước lấy token chạy lại **trước mỗi case**, 
 
 ## 7. Nhập và chạy test case
 
-**4. Test case** hiện ở cột phải khi body là JSON. Bảng có một cột cho mỗi field, thêm **Tên case** và **Expect**. Sau khi Analyze, bảng có sẵn một dòng điền giá trị lấy từ curl.
+**4. Test case** hiện ở cột phải khi body là JSON. Thẻ này cho biết có bao nhiêu case và bao nhiêu case sẽ bị chặn, kèm tuỳ chọn chạy; bấm **Sửa test case** để mở bảng case trong một popup lớn. Bảng có một cột cho mỗi field, thêm **Tên case** và **Expect**. Sau khi Analyze, bảng có sẵn một dòng điền giá trị lấy từ curl. Đóng popup bằng **Đóng** (các dòng vẫn được giữ), hoặc bấm **Chạy** trong popup để đóng và chạy luôn.
 
 ![Bảng case với bốn case](images/06-test-cases-vi.png)
 
@@ -152,16 +152,16 @@ Khi chạy case, các bước lấy token chạy lại **trước mỗi case**, 
 
 Tìm thấy → **SUCCESS**; không thấy → **FAILED**. Riêng HTTP status không quyết định: API trả 200 kèm `{"code":"99"}` thì case expect `"code":"00"` vẫn FAILED. Nên dùng expect đặc trưng: chỉ `00` thì cũng khớp `"amount":1000000`, còn `"code":"00"` chỉ khớp đúng field đó.
 
-Ô Required hoặc Expect còn trống được viền đỏ, rê chuột vào để xem lý do, và dòng dưới bảng đếm số case sẽ bị chặn. Vẫn chạy được: tool hỏi xác nhận rồi gửi các case còn lại.
+Ô Required hoặc Expect còn trống được viền đỏ, rê chuột vào để xem lý do, và dòng dưới bảng (cùng thẻ tóm tắt trên trang) đếm số case sẽ bị chặn. Vẫn chạy được: tool hỏi xác nhận rồi gửi các case còn lại.
 
-**Tuỳ chọn chạy**, dưới bảng:
+**Tuỳ chọn chạy**, trên thẻ **4. Test case**:
 
 | Tuỳ chọn | Ý nghĩa |
 |---|---|
 | **Số request song song** | Bao nhiêu case được gửi cùng lúc (1–20, mặc định 5). Khi có bước lấy token thì cố định là 1: các case chạy lần lượt, mỗi case sau các bước lấy token của riêng nó. |
 | **Timeout (giây)** | Chờ mỗi câu trả lời bao lâu (1–120, mặc định 30). Case chờ lâu hơn kết thúc là EXCEPTION. |
 
-Bấm **Chạy** trên thanh trên. **5. Kết quả** được điền dần khi từng case xong, không cần tải lại trang:
+Bấm **Chạy** trên thanh trên (hoặc trong popup). **5. Kết quả** được điền dần khi từng case xong, không cần tải lại trang:
 
 ![Kết quả của một lần chạy](images/07-results-vi.png)
 

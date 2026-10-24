@@ -41,7 +41,7 @@ The page has a dark top bar and two columns:
 
 - **Top bar**: the **Run** button (it becomes **Cancel run** while a run is in progress, and **Run again** afterwards), a count of each result status, the **BE OK** tag with the version when the tool is ready, and the **VI / EN** switch, which changes the language and is remembered.
 - **Left, Configuration**: the steps that describe the request, **0. Token**, **1. Curl**, **2. Request** and **3. Field rules**. Click a title to open or close it; a closed step shows a one-line summary on the right, such as *POST https://…* or *5 fields · 4 Required*. **Import config** and **Export config** are at the top of this column. The **«** button hides the column to a thin rail so the cases and results get the whole width; click the rail to show it again.
-- **Right**: **4. Test cases** and, below it, **5. Results**.
+- **Right**: **4. Test cases** (a short summary; the table opens in a popup) and, below it, **5. Results**.
 
 On a narrow window (under 1200 pixels) the right column moves below the left one.
 
@@ -125,7 +125,7 @@ When cases run, the token steps run again **before every case**, so every case g
 
 ## 7. Write and run test cases
 
-**4. Test cases** appears in the right column when the body is JSON. It has one column per field, plus **Case name** and **Expect**. After Analyze it already holds one row filled with the values from your curl.
+**4. Test cases** appears in the right column when the body is JSON. It shows how many cases there are and how many will be blocked, with the run options; click **Edit test cases** to open the case table in a large popup. The table has one column per field, plus **Case name** and **Expect**. After Analyze it already holds one row filled with the values from your curl. Close the popup with **Close** (your rows are kept), or click **Run** in it to close it and start the run.
 
 ![The case table with four cases](images/06-test-cases.png)
 
@@ -152,16 +152,16 @@ A cell that does not fit its type (`abc` in a `number` field) makes the case BLO
 
 Found → **SUCCESS**; not found → **FAILED**. The HTTP status alone never decides: an API that answers 200 with `{"code":"99"}` fails a case that expects `"code":"00"`. Prefer a distinctive expect: `00` alone also matches `"amount":1000000`, while `"code":"00"` matches only that field.
 
-An empty Required cell or Expect is outlined in red, with the reason on hover, and the line under the table counts the cases that will be blocked. You can still run: the tool asks you to confirm, then sends the other cases.
+An empty Required cell or Expect is outlined in red, with the reason on hover, and the line under the table (and the summary on the page) counts the cases that will be blocked. You can still run: the tool asks you to confirm, then sends the other cases.
 
-**Run options**, under the table:
+**Run options**, on the **4. Test cases** card:
 
 | Option | Meaning |
 |---|---|
 | **Parallel requests** | How many cases are sent at the same time (1–20, default 5). With token steps it is fixed at 1: cases run one at a time, each after its own token steps. |
 | **Timeout (seconds)** | How long to wait for each answer (1–120, default 30). A case that waits longer ends as EXCEPTION. |
 
-Click **Run** in the top bar. **5. Results** fills in as cases finish, without reloading the page:
+Click **Run** in the top bar (or in the popup). **5. Results** fills in as cases finish, without reloading the page:
 
 ![Results of a run](images/07-results.png)
 
