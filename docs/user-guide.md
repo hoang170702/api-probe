@@ -39,7 +39,7 @@ If a developer hands you a ready-built program (`caserunner.exe` on Windows), yo
 
 The page has a dark top bar and one centered column:
 
-- **Top bar**: the **Run** button (it becomes **Cancel run** while a run is in progress, and **Run again** afterwards), a count of each result status, the **BE OK** tag with the version when the tool is ready, and the **VI / EN** switch, which changes the language and is remembered.
+- **Top bar**: the **Run** button (it becomes **Cancel run** while a run is in progress, and **Run again** afterwards), a count of each result status, the **BE OK** tag with the version when the tool is ready, the **🚀 Quick Start** button that opens a short visual walkthrough of the four main steps (useful the first time you open the tool), and the **VI / EN** switch, which changes the language and is remembered.
 - **Configuration**: the steps that describe the request, **0. Token**, **1. Curl**, **2. Request** and **3. Field rules**. Click a title to open or close it; a closed step shows a one-line summary on the right, such as *POST https://…* or *5 fields · 4 Required*. **Import config** and **Export config** are at the top of this card.
 - **4. Test cases**: a short summary; the case table opens in a popup.
 - **5. Results**: filled in live while a run is in progress.

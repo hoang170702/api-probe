@@ -10,3 +10,7 @@ Thumbs.db
 # Frontend build embedded into the Go binary by caserunner/scripts/build.sh
 caserunner/backend/internal/adapter/web/dist/*
 !caserunner/backend/internal/adapter/web/dist/.gitkeep
+
+# Plan bundles (/plan workflow), local only
+/plans/
+/.worktrees/

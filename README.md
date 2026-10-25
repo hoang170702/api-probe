@@ -133,6 +133,8 @@ With `CASERUNNER_BIND=0.0.0.0:…` Windows may ask to allow the program through 
 
 The [user guide](docs/user-guide.md) ([Tiếng Việt](docs/user-guide.vi.md)) walks through each screen with screenshots: copying a request as curl, reading the request summary, setting field rules, getting a token first, writing and running test cases, reading the results, and what each error message means.
 
+The **🚀 Quick Start** button in the top-right corner opens a short visual walkthrough of those four steps — useful the first time you open the tool.
+
 In short:
 
 1. *(Optional)* **0. Token** — add the login curl, click **Analyze**, then **Try steps**; the token is found automatically.

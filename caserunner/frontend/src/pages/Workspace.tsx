@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { cancelRun, startRun, watchRun } from '../api/runs'
+import { RocketOutlined } from '@ant-design/icons'
 import { Alert, App, Button, Card, Collapse, ConfigProvider, Empty, Flex, Grid, Layout, Modal, Segmented, Tag, theme as antdTheme, Tooltip, Typography, type CollapseProps } from 'antd'
 import { getHealth } from '../api/health'
 import { parseCurl } from '../api/parse'
@@ -14,6 +15,7 @@ import PrepareSteps, { type PrepareStepState } from '../components/PrepareSteps'
 import CaseTable from '../components/CaseTable'
 import RunOptions from '../components/RunOptions'
 import ResultView from '../components/ResultView'
+import QuickStartGuide from '../components/QuickStartGuide'
 import { countStatuses, FINISHED, remapRows, rowProblems, sampleRow, STATUS_COLOR } from '../lib/cases'
 import { downloadConfig, parseConfig, type ConfigFile } from '../lib/config-file'
 
@@ -61,6 +63,7 @@ export default function Workspace() {
   const [openSections, setOpenSections] = useState<string[]>(['curl'])
   const screens = Grid.useBreakpoint()
   const [casesOpen, setCasesOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   useEffect(() => () => stopWatching.current?.(), [])
 
   useEffect(() => {
@@ -412,6 +415,15 @@ export default function Workspace() {
               </Tooltip>
             )}
             <HealthTag health={health} />
+            <Tooltip title={screens.md ? undefined : t('guide.open')}>
+              <Button
+                aria-label={t('guide.open')}
+                icon={<RocketOutlined />}
+                onClick={() => setGuideOpen(true)}
+              >
+                {screens.md ? t('guide.open') : null}
+              </Button>
+            </Tooltip>
           </Flex>
         </ConfigProvider>
         <Segmented<Lang>
@@ -515,6 +527,7 @@ export default function Workspace() {
             <CaseTable fields={parsed.fields} rules={rules} rows={rows} onChange={setRows} onAdd={addRow} onDuplicate={duplicateRow} />
           </Modal>
         )}
+        <QuickStartGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
       </Layout.Content>
     </Layout>
   )
