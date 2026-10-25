@@ -56,7 +56,7 @@ cd caserunner/backend
 go run ./cmd/mockapi   # 127.0.0.1:9999, or MOCKAPI_BIND
 ```
 
-Endpoints (all `POST` unless noted): `/ok`, `/created`, `/error` (500), `/redirect` (302), `/validate` (400 without `data.amount`), `/echo` (returns the body), `/slow?ms=`, `/login` (new token each call), `/secure` (401 without a login token), `GET /hits`, `/hits/reset`.
+Endpoints (all `POST` unless noted): `/ok`, `/created`, `/error` (500), `/redirect` (302), `/validate` (400 when `data.amount` is missing, `null`, or `""`), `/echo` (returns the body), `/slow?ms=`, `/login` (new token each call), `/secure` (401 without a login token), `GET /hits`, `/hits/reset`.
 
 ## Checks
 

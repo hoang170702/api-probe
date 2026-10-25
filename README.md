@@ -177,7 +177,7 @@ npm install
 npm run dev
 ```
 
-The commands are the same in PowerShell (with `\` in paths). A fake API for trying runs locally is in `cmd/mockapi` (development only, not part of the build): `go run ./cmd/mockapi` from `caserunner/backend` listens on `127.0.0.1:9999` (`MOCKAPI_BIND` to change) with endpoints such as `POST /ok`, `/validate` (400 without `data.amount`), `/slow?ms=`, `/login` and `/secure` (needs the login token).
+The commands are the same in PowerShell (with `\` in paths). A fake API for trying runs locally is in `cmd/mockapi` (development only, not part of the build): `go run ./cmd/mockapi` from `caserunner/backend` listens on `127.0.0.1:9999` (`MOCKAPI_BIND` to change) with endpoints such as `POST /ok`, `/validate` (400 when `data.amount` is missing, `null`, or `""`), `/slow?ms=`, `/login` and `/secure` (needs the login token).
 
 To point the dev server at another backend: `CASERUNNER_API_URL=http://127.0.0.1:9090 npm run dev`, or `$env:CASERUNNER_API_URL = 'http://127.0.0.1:9090'; npm run dev` in PowerShell.
 

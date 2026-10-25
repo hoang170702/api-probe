@@ -74,7 +74,7 @@ func reply(w http.ResponseWriter, status int, body string) {
 	_, _ = w.Write([]byte(body))
 }
 
-// validate answers 400 when data.amount is missing, like an API checking a required field.
+// validate answers 400 when data.amount is missing, null, or an empty string.
 func validate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Data map[string]json.RawMessage `json:"data"`
@@ -83,8 +83,18 @@ func validate(w http.ResponseWriter, r *http.Request) {
 		reply(w, 400, `{"code":"ERR_BAD_JSON"}`)
 		return
 	}
-	if _, ok := body.Data["amount"]; !ok {
+	amount, ok := body.Data["amount"]
+	if !ok {
 		reply(w, 400, `{"code":"ERR_AMOUNT_REQUIRED"}`)
+		return
+	}
+	if strings.TrimSpace(string(amount)) == "null" {
+		reply(w, 400, `{"code":"ERR_AMOUNT_NULL"}`)
+		return
+	}
+	var text string
+	if err := json.Unmarshal(amount, &text); err == nil && text == "" {
+		reply(w, 400, `{"code":"ERR_AMOUNT_EMPTY"}`)
 		return
 	}
 	reply(w, 200, `{"code":"00"}`)

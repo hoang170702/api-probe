@@ -40,6 +40,8 @@ func TestEndpoints(t *testing.T) {
 		{"/redirect", "", 302, ""},
 		{"/validate", `{"data":{"amount":100}}`, 200, `"code":"00"`},
 		{"/validate", `{"data":{"note":"x"}}`, 400, "ERR_AMOUNT_REQUIRED"},
+		{"/validate", `{"data":{"amount":null}}`, 400, "ERR_AMOUNT_NULL"},
+		{"/validate", `{"data":{"amount":""}}`, 400, "ERR_AMOUNT_EMPTY"},
 		{"/validate", `not json`, 400, "ERR_BAD_JSON"},
 		{"/slow?ms=20", "", 200, "slow"},
 		{"/echo", `{"acc":12345678901234567890}`, 200, `{"acc":12345678901234567890}`},
