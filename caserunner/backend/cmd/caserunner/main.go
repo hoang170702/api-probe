@@ -13,8 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hoang170702/api-probe/caserunner/backend/internal/adapter/broker"
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/adapter/httpapi"
+	"github.com/hoang170702/api-probe/caserunner/backend/internal/adapter/memstore"
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/adapter/sender"
+	"github.com/hoang170702/api-probe/caserunner/backend/internal/adapter/system"
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/adapter/web"
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/config"
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/usecase"
@@ -45,13 +48,22 @@ func run() error {
 		DefaultTimeout: cfg.DefaultTimeout,
 		MaxTimeout:     cfg.MaxTimeout,
 	}
-	useCases := httpapi.UseCases{
-		ParseCurl:  usecase.ParseCurl{},
-		TryPrepare: usecase.TryPrepare{Sender: sender.New(), Policy: policy},
-	}
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	out := sender.New() // one connection pool for every outgoing request (§11.2)
+	store := memstore.New(cfg.MaxRuns, cfg.RunTTL, time.Now)
+	store.StartJanitor(ctx, time.Minute)
+	useCases := httpapi.UseCases{
+		ParseCurl:  usecase.ParseCurl{},
+		TryPrepare: usecase.TryPrepare{Sender: out, Policy: policy},
+		Runs: &usecase.Runs{
+			Repo: store, Events: broker.New(), Sender: out, Policy: policy,
+			Clock: system.Clock{}, IDs: system.IDs{},
+			MaxCases: cfg.MaxCases, MaxConcurrency: cfg.MaxConcurrency, DefaultConcurrency: cfg.DefaultConcurrency,
+			Base: ctx, // runs stop on shutdown
+		},
+	}
 
 	// Bind before logging, so "listening" is only printed once the port is ours.
 	ln, err := net.Listen("tcp", cfg.Bind)

@@ -74,3 +74,79 @@ export interface TryPrepareResponse {
   steps: StepResult[]
   vars: Record<string, string>
 }
+
+/** One row of the case table (BRD-001 §8): values are typed text, keyed by field path. */
+export interface CaseRow {
+  id: number
+  name: string
+  values: Record<string, string>
+  expect: string
+}
+
+export interface RunOptionsValue {
+  concurrency: number
+  timeoutSec: number
+}
+
+// Runs (BRD-001 §15.3–§15.5).
+
+export type CaseStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'EXCEPTION' | 'BLOCKED' | 'CANCELLED'
+export type RunStatus = 'RUNNING' | 'DONE' | 'CANCELLED'
+
+export interface StartRunRequest {
+  template: RequestTemplate
+  fields: { path: string; type: FieldType; rule: FieldRule }[]
+  cases: { no: number; name: string; values: Record<string, string>; expect: string }[]
+  prepare?: { steps: PrepareStepInput[]; injectToken: boolean }
+  options: { concurrency: number; timeoutMs: number }
+}
+
+export interface StartRunResponse {
+  runId: string
+  total: number
+  blocked: number
+}
+
+export interface CaseResult {
+  caseIndex: number
+  caseNo: number
+  name: string
+  status: CaseStatus
+  reason: string
+  errors?: { field: string; code: string; message: string }[]
+  errorType?: string
+  input: Record<string, string>
+  requestBody?: string
+  expect: string
+  foundIn?: 'status' | 'header' | 'body'
+  httpStatus?: number
+  responseBody?: string
+  truncated?: boolean
+  startedAt?: string
+  durationMs: number
+}
+
+export interface RunSummary {
+  total: number
+  pending: number
+  running: number
+  success: number
+  failed: number
+  exception: number
+  blocked: number
+  cancelled: number
+}
+
+export interface RunSnapshot {
+  runId: string
+  status: RunStatus
+  createdAt: string
+  results: CaseResult[]
+  summary: RunSummary
+}
+
+export interface RunDone {
+  runId: string
+  status: RunStatus
+  summary: RunSummary
+}

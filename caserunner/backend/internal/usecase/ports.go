@@ -2,9 +2,11 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/hoang170702/api-probe/caserunner/backend/internal/domain/curl"
+	"github.com/hoang170702/api-probe/caserunner/backend/internal/domain/run"
 )
 
 // RequestSender sends one HTTP request to the API under test. It never
@@ -50,4 +52,47 @@ const (
 	ErrInvalidResponse = "INVALID_RESPONSE"
 	ErrCancelled       = "CANCELLED"
 	ErrPolicy          = "POLICY"
+	ErrPrepareFailed   = "PREPARE_FAILED"
+	ErrInternal        = "INTERNAL"
 )
+
+// RunRepository keeps runs while they execute and for a while after
+// (BRD-001 §15.6). Get returns a copy; every change goes through Update,
+// which applies fn under the repository's lock.
+type RunRepository interface {
+	Create(r run.Run) error
+	Get(id string) (run.Run, bool)
+	Update(id string, fn func(*run.Run)) error
+}
+
+// Errors a RunRepository returns.
+var (
+	ErrRunNotFound = errors.New("run not found or expired")
+	ErrStoreFull   = errors.New("too many runs are in progress")
+)
+
+// Event is one change of a run pushed to watchers (BRD-001 §15.5).
+type Event struct {
+	Kind string          // EventCase or EventDone
+	Case *run.CaseResult // for EventCase
+	Run  *run.Run        // for EventDone: the final state
+}
+
+// Event kinds.
+const (
+	EventCase = "case"
+	EventDone = "done"
+)
+
+// EventPublisher fans run events out to watchers. Publish never blocks:
+// a watcher that cannot keep up is dropped and its channel closed.
+type EventPublisher interface {
+	Publish(runID string, ev Event)
+	Subscribe(runID string) (events <-chan Event, cancel func())
+}
+
+// Clock tells the time; tests replace it.
+type Clock interface{ Now() time.Time }
+
+// IDGenerator makes run IDs.
+type IDGenerator interface{ NewID() string }

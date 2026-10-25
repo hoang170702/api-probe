@@ -1,15 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Card, Flex, Segmented, Tag, Typography } from 'antd'
+import { cancelRun, startRun, watchRun } from '../api/runs'
+import { Alert, App, Button, Card, Collapse, ConfigProvider, Empty, Flex, Grid, Layout, Modal, Segmented, Tag, theme as antdTheme, Tooltip, Typography, type CollapseProps } from 'antd'
 import { getHealth } from '../api/health'
 import { parseCurl } from '../api/parse'
 import { tryPrepare } from '../api/prepare'
-import type { Capture, FieldRule, ParseResponse, StepResult } from '../types/api'
+import type { Capture, CaseResult, CaseRow, FieldRule, ParseResponse, RunOptionsValue, RunStatus, StartRunRequest, StepResult } from '../types/api'
 import { useI18n } from '../i18n/context'
 import type { Lang } from '../i18n/messages'
 import CurlInput from '../components/CurlInput'
 import RequestSummary from '../components/RequestSummary'
 import FieldRuleTable from '../components/FieldRuleTable'
 import PrepareSteps, { type PrepareStepState } from '../components/PrepareSteps'
+import CaseTable from '../components/CaseTable'
+import RunOptions from '../components/RunOptions'
+import ResultView from '../components/ResultView'
+import { countStatuses, FINISHED, remapRows, rowProblems, sampleRow, STATUS_COLOR } from '../lib/cases'
+import { downloadConfig, parseConfig, type ConfigFile } from '../lib/config-file'
 
 type Health = { state: 'checking' } | { state: 'ok'; version: string } | { state: 'down'; message: string }
 
@@ -18,9 +24,10 @@ function errorMessage(err: unknown): string {
 }
 
 /**
- * The single API Case Runner page (BRD-001 §16): optional token steps, the
- * curl panel, then the configuration below it once the curl is analyzed.
- * The case table and results panel come in later steps.
+ * The single API Case Runner page (BRD-001 §16): a top bar with Run and the
+ * live summary, then one centered column: configuration (token steps, curl,
+ * request, field rules), a test-case summary whose table opens in a popup,
+ * and the results.
  */
 export default function Workspace() {
   const { t, lang, setLang } = useI18n()
@@ -38,6 +45,24 @@ export default function Workspace() {
   const [stepResults, setStepResults] = useState<StepResult[]>()
   const nextStepId = useRef(1)
 
+  const { modal, message } = App.useApp()
+  const [rows, setRows] = useState<CaseRow[]>([])
+  const [options, setOptions] = useState<RunOptionsValue>({ concurrency: 5, timeoutSec: 30 })
+  const nextRowId = useRef(1)
+  // The API the cases were written for; analyzing another one starts over (A15).
+  const caseApi = useRef<string>(undefined)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const resultsRef = useRef<HTMLDivElement>(null)
+
+  const [runState, setRunState] = useState<{ id: string; status: RunStatus; results: CaseResult[] }>()
+  const [starting, setStarting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const stopWatching = useRef<() => void>(undefined)
+  const [openSections, setOpenSections] = useState<string[]>(['curl'])
+  const screens = Grid.useBreakpoint()
+  const [casesOpen, setCasesOpen] = useState(false)
+  useEffect(() => () => stopWatching.current?.(), [])
+
   useEffect(() => {
     const ctrl = new AbortController()
     getHealth(ctrl.signal)
@@ -48,14 +73,64 @@ export default function Workspace() {
     return () => ctrl.abort()
   }, [])
 
+  // Shows a parsed curl: rules default to Required (D3) and the rows follow
+  // its fields (§8.2), asking first when typed values would be lost. The
+  // cases and rules are kept only for the same API; another API starts from
+  // one sample row (A15). It returns false when the tester cancels.
+  async function applyParsed(res: ParseResponse, prevRules: Record<string, FieldRule>, keepRows: CaseRow[]): Promise<boolean> {
+    const api = apiKey(res)
+    const sameApi = caseApi.current === undefined || caseApi.current === api
+    if (!sameApi) {
+      prevRules = {}
+      keepRows = []
+    }
+    const { rows: next, lost } = remapRows(keepRows, res.fields)
+    if (lost > 0) {
+      const ok = await modal.confirm({
+        title: t('config.lostTitle'),
+        content: t('config.lostBody', { n: lost }),
+        okText: t('config.continue'),
+        cancelText: t('config.cancel'),
+      })
+      if (!ok) return false
+    }
+    caseApi.current = api
+    setParsed(res)
+    // Open the next thing to check: the field rules, or the request when the body cannot run.
+    const section = res.template.bodyKind === 'json' ? 'fields' : 'request'
+    setOpenSections((prev) => (prev.includes(section) ? prev : [...prev, section]))
+    setRules(Object.fromEntries(res.fields.map((f) => [f.path, prevRules[f.path] ?? 'REQUIRED'])))
+    setRows(next.length > 0 ? next : [sampleRow(nextRowId.current++, res.fields)])
+    return true
+  }
+
+  function clearRows() {
+    if (!parsed) return
+    modal.confirm({
+      title: t('cases.clearTitle'),
+      content: t('cases.clearBody'),
+      okText: t('cases.clear'),
+      okButtonProps: { danger: true },
+      cancelText: t('config.cancel'),
+      onOk: () => setRows([sampleRow(nextRowId.current++, parsed.fields)]),
+    })
+  }
+
+  function addRow() {
+    if (parsed) setRows((prev) => [...prev, sampleRow(nextRowId.current++, parsed.fields)])
+  }
+
+  function duplicateRow(id: number) {
+    setRows((prev) => prev.flatMap((r) => (r.id === id ? [r, { ...r, id: nextRowId.current++, values: { ...r.values } }] : [r])))
+  }
+
   async function analyze() {
     setAnalyzing(true)
     setParseError(undefined)
     try {
       const res = await parseCurl(curl)
-      setParsed(res)
-      // Default Required (D3); a path that still exists keeps the rule it had.
-      setRules((prev) => Object.fromEntries(res.fields.map((f) => [f.path, prev[f.path] ?? 'REQUIRED'])))
+      // The case popup opens right after a JSON curl is analyzed (A15).
+      if ((await applyParsed(res, rules, rows)) && res.template.bodyKind === 'json') setCasesOpen(true)
     } catch (err) {
       setParsed(undefined)
       setParseError(errorMessage(err))
@@ -113,32 +188,136 @@ export default function Workspace() {
     }
   }
 
+  function currentConfig(): ConfigFile {
+    return {
+      version: 1,
+      prepare: { steps: steps.map((s) => ({ curl: s.curl, captures: s.captures })), injectToken },
+      curl,
+      rules,
+      cases: rows.map(({ name, values, expect }) => ({ name, values, expect })),
+      options,
+    }
+  }
+
+  // Restores a saved configuration and analyzes its curls again (D11).
+  async function importConfig(file: File) {
+    try {
+      const cfg = parseConfig(await file.text())
+      const restored: PrepareStepState[] = []
+      for (const s of cfg.prepare.steps) {
+        const step: PrepareStepState = { id: nextStepId.current++, curl: s.curl, analyzing: false, captures: s.captures }
+        try {
+          step.parsed = await parseCurl(s.curl)
+        } catch (err) {
+          step.parseError = errorMessage(err)
+        }
+        restored.push(step)
+      }
+      setSteps(restored)
+      if (restored.length > 0) setOpenSections((prev) => (prev.includes('token') ? prev : [...prev, 'token']))
+      setStepResults(undefined)
+      setInjectToken(cfg.prepare.injectToken)
+      setOptions(cfg.options)
+      setCurl(cfg.curl)
+      setParseError(undefined)
+      const res = await parseCurl(cfg.curl)
+      const imported = cfg.cases.map((c) => ({ id: nextRowId.current++, ...c }))
+      // An imported file brings its own cases, whatever API was shown before.
+      caseApi.current = undefined
+      await applyParsed(res, cfg.rules, imported)
+    } catch (err) {
+      message.error(`${t('config.importFailed')}: ${errorMessage(err)}`)
+    }
+  }
+
+  function runRequest(p: ParseResponse): StartRunRequest {
+    return {
+      template: p.template,
+      fields: p.fields.map((f) => ({ path: f.path, type: f.type, rule: rules[f.path] ?? 'REQUIRED' })),
+      cases: rows.map((r, i) => ({ no: i + 1, name: r.name, values: r.values, expect: r.expect })),
+      ...(steps.length > 0 && {
+        prepare: {
+          steps: steps.map((s) => ({ template: s.parsed!.template, captures: s.captures.filter((c) => c.var !== '' || c.path !== '') })),
+          injectToken,
+        },
+      }),
+      options: { concurrency: options.concurrency, timeoutMs: options.timeoutSec * 1000 },
+    }
+  }
+
+  // Starts a run and follows it over SSE (BRD-001 §15.5); the backend validates again.
+  async function run() {
+    if (!parsed) return
+    const blocked = rows.filter((r) => rowProblems(r, parsed.fields, rules).length > 0).length
+    if (blocked > 0) {
+      const go = await modal.confirm({
+        title: t('run.blockedTitle', { n: blocked }),
+        content: t('run.blockedBody'),
+        okText: t('run.button'),
+        cancelText: t('config.cancel'),
+      })
+      if (!go) return
+    }
+    setStarting(true)
+    try {
+      const started = await startRun(runRequest(parsed))
+      stopWatching.current?.()
+      setRunState({ id: started.runId, status: 'RUNNING', results: [] })
+      // Back on the main screen, bring the results into view.
+      window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+      stopWatching.current = watchRun(started.runId, {
+        onSnapshot: (snap) =>
+          setRunState((prev) => (prev && prev.id !== snap.runId ? prev : { id: snap.runId, status: snap.status, results: snap.results })),
+        onCase: (c) =>
+          setRunState((prev) => {
+            if (!prev || prev.id !== started.runId) return prev
+            const results = [...prev.results]
+            results[c.caseIndex] = c
+            return { ...prev, results }
+          }),
+        onDone: (d) => setRunState((prev) => (prev && prev.id === d.runId ? { ...prev, status: d.status } : prev)),
+        // The run can no longer be followed (expired, or the tool stopped):
+        // drop it so Run is enabled again.
+        onError: (msg) => {
+          message.error(`${t('results.lost')}: ${msg}`)
+          setRunState((prev) => (prev && prev.id === started.runId ? undefined : prev))
+        },
+      })
+    } catch (err) {
+      message.error(`${t('run.failed')}: ${errorMessage(err)}`)
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  async function cancel() {
+    if (!runState) return
+    setCancelling(true)
+    try {
+      await cancelRun(runState.id)
+    } catch (err) {
+      message.error(errorMessage(err))
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const stepsReady = steps.every((s) => s.parsed)
   const knownVars = steps.flatMap((s) => s.captures.map((c) => c.var)).filter((v) => v !== '')
   const tokenInjected = steps.length > 0 && injectToken
 
-  return (
-    <Flex vertical gap={24}>
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Typography.Title level={2} style={{ margin: 0 }}>
-          {t('app.title')}
-        </Typography.Title>
-        <Flex gap={12} align="center">
-          <Segmented<Lang>
-            aria-label={t('lang.switch')}
-            value={lang}
-            onChange={setLang}
-            options={[
-              { label: 'VI', value: 'vi' },
-              { label: 'EN', value: 'en' },
-            ]}
-          />
-          <HealthTag health={health} />
-        </Flex>
-      </Flex>
+  const isJson = parsed?.template.bodyKind === 'json'
+  const blockedRows = parsed ? rows.filter((r) => rowProblems(r, parsed.fields, rules).length > 0).length : 0
+  const canRun = isJson && rows.length > 0 && stepsReady
+  const running = runState?.status === 'RUNNING'
+  const counts = runState ? countStatuses(runState.results) : undefined
+  const required = parsed ? parsed.fields.filter((f) => (rules[f.path] ?? 'REQUIRED') === 'REQUIRED').length : 0
 
-      {health.state === 'down' && <Alert type="error" showIcon title={t('health.unreachable')} description={health.message} />}
-
-      <Card title={t('prepare.card')}>
+  const sections: CollapseProps['items'] = [
+    {
+      key: 'token',
+      label: <SectionLabel title={t('prepare.card')} summary={steps.length > 0 ? t('summary.tokenSteps', { n: steps.length }) : t('summary.tokenNone')} />,
+      children: (
         <PrepareSteps
           steps={steps}
           onAdd={addStep}
@@ -153,36 +332,218 @@ export default function Workspace() {
           tryError={tryError}
           results={stepResults}
         />
-      </Card>
-
-      <Card title={t('curl.card')}>
-        <CurlInput value={curl} onChange={setCurl} onAnalyze={analyze} loading={analyzing} error={parseError} />
-      </Card>
-
-      {parsed && (
-        <>
-          <Card title={t('request.card')}>
-            <RequestSummary
-              template={parsed.template}
-              warnings={parsed.warnings}
-              injectToken={tokenInjected}
-              knownVars={knownVars}
-            />
-          </Card>
-          {parsed.template.bodyKind === 'json' && (
-            <Card title={t('fields.card')}>
+      ),
+    },
+    {
+      key: 'curl',
+      label: <SectionLabel title={t('curl.card')} summary={parsed ? `${parsed.template.method} ${parsed.template.url}` : t('summary.curlEmpty')} />,
+      children: <CurlInput value={curl} onChange={setCurl} onAnalyze={analyze} loading={analyzing} error={parseError} />,
+    },
+    ...(parsed
+      ? [
+          {
+            key: 'request',
+            label: (
+              <SectionLabel
+                title={t('request.card')}
+                summary={[
+                  t(`body.${parsed.template.bodyKind}`),
+                  `${parsed.template.headers.length} header`,
+                  ...(parsed.warnings.length > 0 ? [t('request.warnings', { n: parsed.warnings.length })] : []),
+                ].join(' · ')}
+              />
+            ),
+            children: <RequestSummary template={parsed.template} warnings={parsed.warnings} injectToken={tokenInjected} knownVars={knownVars} />,
+          },
+        ]
+      : []),
+    ...(parsed && isJson
+      ? [
+          {
+            key: 'fields',
+            label: <SectionLabel title={t('fields.card')} summary={t('summary.fields', { n: parsed.fields.length, required })} />,
+            children: (
               <FieldRuleTable
                 fields={parsed.fields}
                 rules={rules}
                 onRuleChange={(path, rule) => setRules((prev) => ({ ...prev, [path]: rule }))}
                 onSetAll={(rule) => setRules(Object.fromEntries(parsed.fields.map((f) => [f.path, rule])))}
               />
+            ),
+          },
+        ]
+      : []),
+  ]
+
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      <Layout.Header style={{ position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <Flex align="center" gap={10} style={{ minWidth: 0 }}>
+          <span
+            style={{ width: 28, height: 28, lineHeight: '28px', textAlign: 'center', borderRadius: 7, background: '#4f46e5', color: '#fff', fontWeight: 700, fontSize: 12 }}
+          >
+            AC
+          </span>
+          <Typography.Text strong style={{ color: '#fff', fontSize: 16, whiteSpace: 'nowrap' }}>
+            {t('app.title')}
+          </Typography.Text>
+          {screens.lg && <Typography.Text style={{ color: '#9ca3af', whiteSpace: 'nowrap' }}>{t('app.tagline')}</Typography.Text>}
+        </Flex>
+        <ConfigProvider theme={{ algorithm: antdTheme.darkAlgorithm, token: { colorPrimary: '#6366f1' } }}>
+          <Flex align="center" gap={8} style={{ marginInlineStart: 'auto' }}>
+            {counts && screens.lg && (
+              <Flex gap={4} wrap>
+                {FINISHED.filter((s) => counts[s] > 0).map((s) => (
+                  <Tag key={s} color={STATUS_COLOR[s]} style={{ marginInlineEnd: 0 }}>
+                    {s} {counts[s]}
+                  </Tag>
+                ))}
+              </Flex>
+            )}
+            {running ? (
+              <Button danger type="primary" onClick={() => void cancel()} loading={cancelling}>
+                {t('results.cancel')}
+              </Button>
+            ) : (
+              <Tooltip title={parsed && !stepsReady ? t('run.notReady') : undefined}>
+                <Button type="primary" onClick={() => void run()} loading={starting} disabled={!canRun}>
+                  {runState ? t('results.runAgain') : t('run.button')}
+                </Button>
+              </Tooltip>
+            )}
+            <HealthTag health={health} />
+          </Flex>
+        </ConfigProvider>
+        <Segmented<Lang>
+          size="small"
+          aria-label={t('lang.switch')}
+          value={lang}
+          onChange={setLang}
+          options={[
+            { label: 'VI', value: 'vi' },
+            { label: 'EN', value: 'en' },
+          ]}
+        />
+      </Layout.Header>
+
+      <Layout.Content style={{ padding: 24, maxWidth: 1200, width: '100%', margin: '0 auto' }}>
+        {health.state === 'down' && <Alert style={{ marginBottom: 16 }} type="error" showIcon title={t('health.unreachable')} description={health.message} />}
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            e.target.value = ''
+            if (f) void importConfig(f)
+          }}
+        />
+        <Flex vertical gap={24}>
+          <Card
+            title={t('layout.config')}
+            styles={{ body: { padding: 0 } }}
+            extra={
+              <Flex gap={8} align="center">
+                <Button size="small" onClick={() => fileInput.current?.click()}>
+                  {t('config.import')}
+                </Button>
+                <Button size="small" disabled={!isJson} onClick={() => downloadConfig(currentConfig())}>
+                  {t('config.export')}
+                </Button>
+              </Flex>
+            }
+          >
+            <Collapse bordered={false} activeKey={openSections} onChange={(keys) => setOpenSections(keys as string[])} items={sections} />
+          </Card>
+          {parsed && !isJson && <Alert type="warning" showIcon title={t('request.unsupported')} description={t('request.unsupportedDesc')} />}
+          {parsed && isJson && (
+            <Card
+              title={t('cases.card')}
+              extra={
+                <Button type="primary" ghost onClick={() => setCasesOpen(true)}>
+                  {t('cases.open')}
+                </Button>
+              }
+            >
+              <Flex vertical gap={16}>
+                <Typography.Text strong type={blockedRows > 0 ? 'danger' : undefined}>
+                  {t('cases.summary', { n: rows.length, blocked: blockedRows })}
+                </Typography.Text>
+                <RunOptions value={options} onChange={setOptions} sequential={steps.length > 0} />
+              </Flex>
             </Card>
           )}
-        </>
-      )}
+          {parsed && isJson && (
+            <Card ref={resultsRef} title={t('results.card')} style={{ scrollMarginTop: 80 }}>
+              {runState ? (
+                <ResultView status={runState.status} results={runState.results} />
+              ) : (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('results.empty')} />
+              )}
+            </Card>
+          )}
+        </Flex>
+        {parsed && isJson && (
+          <Modal
+            open={casesOpen}
+            onCancel={() => setCasesOpen(false)}
+            title={t('cases.card')}
+            width="calc(100vw - 64px)"
+            style={{ top: 24, maxWidth: 1800 }}
+            styles={{ body: { maxHeight: 'calc(100vh - 200px)', overflow: 'auto' } }}
+            footer={
+              <Flex justify="end" gap={8}>
+                <Button danger style={{ marginInlineEnd: 'auto' }} onClick={clearRows}>
+                  {t('cases.clear')}
+                </Button>
+                <Button onClick={() => setCasesOpen(false)}>{t('cases.close')}</Button>
+                <Button
+                  type="primary"
+                  disabled={!canRun || running}
+                  loading={starting}
+                  onClick={() => {
+                    setCasesOpen(false)
+                    void run()
+                  }}
+                >
+                  {t('run.button')}
+                </Button>
+              </Flex>
+            }
+          >
+            <CaseTable fields={parsed.fields} rules={rules} rows={rows} onChange={setRows} onAdd={addRow} onDuplicate={duplicateRow} />
+          </Modal>
+        )}
+      </Layout.Content>
+    </Layout>
+  )
+}
+
+// SectionLabel is a collapsible section's title with a one-line summary, readable while it is closed.
+function SectionLabel({ title, summary }: { title: string; summary: string }) {
+  return (
+    <Flex justify="space-between" align="center" gap={12} style={{ minWidth: 0 }}>
+      <Typography.Text strong style={{ whiteSpace: 'nowrap' }}>
+        {title}
+      </Typography.Text>
+      <Typography.Text type="secondary" ellipsis style={{ fontSize: 12, maxWidth: '65%' }}>
+        {summary}
+      </Typography.Text>
     </Flex>
   )
+}
+
+// apiKey names the API a curl calls: its method and URL without the query
+// string, so editing body values, headers or the query keeps the cases.
+function apiKey(res: ParseResponse): string {
+  const { method, url } = res.template
+  try {
+    const u = new URL(url)
+    return `${method.toUpperCase()} ${u.origin}${u.pathname}`
+  } catch {
+    return `${method.toUpperCase()} ${url.split('?')[0]}`
+  }
 }
 
 function HealthTag({ health }: { health: Health }) {
